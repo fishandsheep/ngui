@@ -6,6 +6,7 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=fff)
 ![Vite](https://img.shields.io/badge/Vite-5-646cff?logo=vite&logoColor=fff)
 ![Local First](https://img.shields.io/badge/Privacy-local--first-22c55e)
+![License](https://img.shields.io/badge/License-Apache--2.0-blue)
 
 Nginx UI Topology is a local-first web tool for visualizing nginx routing behavior. Paste or upload the output from `nginx -T`, then inspect servers, locations, upstreams, targets, variables, and request flow from an interactive topology canvas.
 
@@ -85,3 +86,7 @@ npm run preview  # preview the production build
 ## Privacy
 
 All parsing and rendering happens in the browser. The app does not require a backend service and does not upload nginx configuration content.
+
+## License
+
+Apache-2.0. See [LICENSE](LICENSE).
