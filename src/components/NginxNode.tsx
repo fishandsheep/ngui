@@ -18,7 +18,7 @@ export function NginxNode({ data, selected }: NodeProps<TopologyNode & { matches
 
   return (
     <div className={`nginx-node ${data.type} ${selected ? "selected" : ""} ${data.matches ? "matches" : ""} ${data.related ? "related" : ""} ${data.dimmed ? "dimmed" : ""}`}>
-      <Handle type="target" position={targetPosition} />
+      <Handle id={data.layout === "vertical" ? "target-top" : "target-left"} type="target" position={targetPosition} />
       <div className="node-topline">
         <span className="node-icon"><Icon size={15} /></span>
         <span className="node-type">{data.type}</span>
@@ -26,7 +26,7 @@ export function NginxNode({ data, selected }: NodeProps<TopologyNode & { matches
       </div>
       <div className="node-label">{data.label}</div>
       {data.subtitle && <div className="node-subtitle">{data.subtitle}</div>}
-      {data.type !== "target" && <Handle type="source" position={sourcePosition} />}
+      {data.type !== "target" && <Handle id={data.layout === "vertical" ? "source-bottom" : "source-right"} type="source" position={sourcePosition} />}
     </div>
   );
 }

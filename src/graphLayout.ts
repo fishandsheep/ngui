@@ -12,6 +12,12 @@ const ranks: Record<TopologyNode["type"], number> = {
 
 export type LayoutDirection = "horizontal" | "vertical";
 
+const horizontalRankGap = 290;
+const horizontalNodeGap = 132;
+const verticalRankGap = 180;
+const verticalNodeGap = 250;
+const start = 80;
+
 export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: string, layout: LayoutDirection = "horizontal") {
   const lowerQuery = query.trim().toLowerCase();
   const connected = new Set<string>();
@@ -30,6 +36,9 @@ export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: st
     const rank = ranks[node.type];
     buckets.set(rank, [...(buckets.get(rank) || []), node]);
   });
+  const maxBucketSize = Math.max(1, ...[...buckets.values()].map((bucket) => bucket.length));
+  const horizontalCenter = start + ((maxBucketSize - 1) * horizontalNodeGap) / 2;
+  const verticalCenter = start + ((maxBucketSize - 1) * verticalNodeGap) / 2;
 
   const nodes: Node[] = graph.nodes.map((node) => {
     const rank = ranks[node.type];
@@ -42,12 +51,12 @@ export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: st
       type: "nginxNode",
       position: layout === "horizontal"
         ? {
-          x: 80 + rank * 290,
-          y: 80 + index * 132 + (rank % 2) * 28
+          x: start + rank * horizontalRankGap,
+          y: horizontalCenter - ((bucket.length - 1) * horizontalNodeGap) / 2 + index * horizontalNodeGap
         }
         : {
-          x: 80 + index * 250 + (rank % 2) * 32,
-          y: 80 + rank * 180
+          x: verticalCenter - ((bucket.length - 1) * verticalNodeGap) / 2 + index * verticalNodeGap,
+          y: start + rank * verticalRankGap
         },
       data: {
         ...node,
@@ -80,11 +89,13 @@ export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: st
       id: edge.id,
       source: edge.source,
       target: edge.target,
+      sourceHandle: layout === "vertical" ? "source-bottom" : "source-right",
+      targetHandle: layout === "vertical" ? "target-top" : "target-left",
       animated: false,
       label: edge.label,
       type: "flowEdge",
       className: `${edge.type}-edge${selected ? " selected-edge" : ""}${matches ? " search-edge" : ""}${dimmed ? " dimmed-edge" : ""}`,
-      data: { ...edge, selected: Boolean(selected), matches, dimmed, offset },
+      data: { ...edge, selected: Boolean(selected), matches, dimmed, offset, layout },
       style: {
         strokeWidth: selected ? 3 : 2,
         opacity: dimmed ? 0.18 : 1

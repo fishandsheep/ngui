@@ -6,14 +6,19 @@ type FlowEdgeData = TopologyEdge & {
   dimmed?: boolean;
   selected?: boolean;
   matches?: boolean;
+  layout?: "horizontal" | "vertical";
 };
 
 export function FlowEdge({ id, sourceX, sourceY, targetX, targetY, markerEnd, data, style }: EdgeProps<FlowEdgeData>) {
   const offset = data?.offset || 0;
+  const horizontal = data?.layout !== "vertical";
   const midX = sourceX + (targetX - sourceX) * 0.5;
-  const labelX = midX;
-  const labelY = sourceY + (targetY - sourceY) * 0.5 + offset;
-  const path = `M ${sourceX},${sourceY} C ${midX},${sourceY + offset} ${midX},${targetY + offset} ${targetX},${targetY}`;
+  const midY = sourceY + (targetY - sourceY) * 0.5;
+  const labelX = horizontal ? midX : midX + offset;
+  const labelY = horizontal ? midY + offset : midY;
+  const path = horizontal
+    ? `M ${sourceX},${sourceY} C ${midX},${sourceY + offset} ${midX},${targetY + offset} ${targetX},${targetY}`
+    : `M ${sourceX},${sourceY} C ${sourceX + offset},${midY} ${targetX + offset},${midY} ${targetX},${targetY}`;
   const className = [
     "custom-flow-edge",
     data?.type ? `${data.type}-edge` : "",
