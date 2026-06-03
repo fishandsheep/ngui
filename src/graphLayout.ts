@@ -10,7 +10,9 @@ const ranks: Record<TopologyNode["type"], number> = {
   target: 5
 };
 
-export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: string) {
+export type LayoutDirection = "horizontal" | "vertical";
+
+export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: string, layout: LayoutDirection = "horizontal") {
   const lowerQuery = query.trim().toLowerCase();
   const connected = new Set<string>();
   if (selectedId) {
@@ -38,12 +40,18 @@ export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: st
     return {
       id: node.id,
       type: "nginxNode",
-      position: {
-        x: 80 + rank * 290,
-        y: 80 + index * 132 + (rank % 2) * 28
-      },
+      position: layout === "horizontal"
+        ? {
+          x: 80 + rank * 290,
+          y: 80 + index * 132 + (rank % 2) * 28
+        }
+        : {
+          x: 80 + index * 250 + (rank % 2) * 32,
+          y: 80 + rank * 180
+        },
       data: {
         ...node,
+        layout,
         matches,
         related,
         dimmed: Boolean(selectedId && !related && selectedId !== node.id)

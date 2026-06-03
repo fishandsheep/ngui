@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ReactFlow, { Background, Controls, MiniMap, Panel, ReactFlowProvider, useReactFlow, type Edge, type Node } from "reactflow";
+import ReactFlow, { Background, ControlButton, Controls, MiniMap, Panel, ReactFlowProvider, useReactFlow, type Edge, type Node } from "reactflow";
 import "reactflow/dist/style.css";
-import { Download, FileJson, Maximize, Maximize2, Minimize, Moon, PanelLeftClose, PanelLeftOpen, RefreshCcw, Search, Sun, Upload } from "lucide-react";
+import { Download, FileJson, Maximize, Maximize2, Minimize, Moon, PanelLeftClose, PanelLeftOpen, RefreshCw, RefreshCcw, Search, Sun, Upload } from "lucide-react";
 import { toPng } from "html-to-image";
 import { buildTopology, type TopologyEdge, type TopologyGraph, type TopologyNode } from "./parser";
 import { sampleConfig } from "./sampleConfig";
@@ -22,10 +22,11 @@ function Workspace() {
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [layout, setLayout] = useState<"horizontal" | "vertical">("horizontal");
   const flowRef = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
   const graph = useMemo<TopologyGraph>(() => buildTopology(config), [config]);
-  const elements = useMemo(() => toFlowElements(graph, query, selectedId), [graph, query, selectedId]);
+  const elements = useMemo(() => toFlowElements(graph, query, selectedId, layout), [graph, query, selectedId, layout]);
 
   useEffect(() => {
     const syncFullscreen = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -71,6 +72,11 @@ function Workspace() {
     }
     await document.exitFullscreen();
   }, []);
+
+  const rotateLayout = useCallback(() => {
+    setLayout((value) => value === "horizontal" ? "vertical" : "horizontal");
+    window.setTimeout(() => fitView({ padding: 0.16, duration: 300 }), 0);
+  }, [fitView]);
 
   return (
     <div className={`app-shell ${theme} ${leftCollapsed ? "panel-collapsed" : ""}`}>
@@ -148,7 +154,11 @@ function Workspace() {
         >
           <Background gap={28} size={1} />
           <MiniMap pannable zoomable />
-          <Controls />
+          <Controls>
+            <ControlButton title="Rotate layout" onClick={rotateLayout}>
+              <RefreshCw size={16} />
+            </ControlButton>
+          </Controls>
           <Panel position="top-right" className="canvas-actions">
             <button title="Fit view" onClick={() => fitView({ padding: 0.16, duration: 300 })}><Maximize2 size={16} /></button>
             <button title="Rebuild layout" onClick={() => setSelectedId(undefined)}><RefreshCcw size={16} /></button>
