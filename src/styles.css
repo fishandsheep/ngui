@@ -123,6 +123,16 @@ button:hover {
   padding: 0;
 }
 
+.fullscreen-button {
+  width: auto;
+  padding: 0 12px !important;
+}
+
+.fullscreen-button span {
+  font-size: 12px;
+  white-space: nowrap;
+}
+
 .left-panel,
 .right-panel {
   min-height: 0;
@@ -170,7 +180,7 @@ button:hover {
 .panel-content {
   min-height: 0;
   display: grid;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 10px;
 }
 
@@ -233,6 +243,12 @@ button:hover {
   gap: 8px;
 }
 
+.panel-meta {
+  min-height: 0;
+  display: grid;
+  gap: 10px;
+}
+
 .status-grid div {
   padding: 10px;
   border: 1px solid var(--line);
@@ -269,6 +285,11 @@ button:hover {
 
 .issues p:last-child {
   margin-bottom: 0;
+}
+
+.config-textarea-area {
+  min-height: 0;
+  height: 100%;
 }
 
 .code-editor {
@@ -318,6 +339,12 @@ button:hover {
   pointer-events: none;
   color: var(--text);
   z-index: 1;
+}
+
+.code-highlight code {
+  display: block;
+  min-width: max-content;
+  min-height: 100%;
 }
 
 .tok-comment {
@@ -618,6 +645,10 @@ button:hover {
   .menu {
     overflow-x: auto;
     padding-bottom: 2px;
+  }
+
+  .fullscreen-button span {
+    display: none;
   }
 
   .left-panel {

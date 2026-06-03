@@ -1,7 +1,7 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ReactFlow, { Background, Controls, MiniMap, Panel, ReactFlowProvider, useReactFlow, type Edge, type Node } from "reactflow";
 import "reactflow/dist/style.css";
-import { Download, FileJson, Maximize2, Moon, PanelLeftClose, PanelLeftOpen, RefreshCcw, Search, Sun, Upload } from "lucide-react";
+import { Download, FileJson, Maximize, Maximize2, Minimize, Moon, PanelLeftClose, PanelLeftOpen, RefreshCcw, Search, Sun, Upload } from "lucide-react";
 import { toPng } from "html-to-image";
 import { buildTopology, type TopologyEdge, type TopologyGraph, type TopologyNode } from "./parser";
 import { sampleConfig } from "./sampleConfig";
@@ -21,10 +21,17 @@ function Workspace() {
   const [selected, setSelected] = useState<TopologyNode | TopologyEdge | null>(null);
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const flowRef = useRef<HTMLDivElement>(null);
   const { fitView } = useReactFlow();
   const graph = useMemo<TopologyGraph>(() => buildTopology(config), [config]);
   const elements = useMemo(() => toFlowElements(graph, query, selectedId), [graph, query, selectedId]);
+
+  useEffect(() => {
+    const syncFullscreen = () => setFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", syncFullscreen);
+    return () => document.removeEventListener("fullscreenchange", syncFullscreen);
+  }, []);
 
   const onFile = async (file?: File) => {
     if (!file) return;
@@ -57,6 +64,14 @@ function Workspace() {
     link.click();
   }, [theme]);
 
+  const toggleFullscreen = useCallback(async () => {
+    if (!document.fullscreenElement) {
+      await document.documentElement.requestFullscreen();
+      return;
+    }
+    await document.exitFullscreen();
+  }, []);
+
   return (
     <div className={`app-shell ${theme} ${leftCollapsed ? "panel-collapsed" : ""}`}>
       <header className="topbar">
@@ -68,6 +83,10 @@ function Workspace() {
           <button title="Toggle theme" onClick={() => setTheme(theme === "dark" ? "light" : "dark")}>{theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}</button>
           <button title="Export JSON" onClick={exportJson}><FileJson size={16} /></button>
           <button title="Export PNG" onClick={exportPng}><Download size={16} /></button>
+          <button className="fullscreen-button" title="Fullscreen" onClick={toggleFullscreen}>
+            {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
+            <span>Fullscreen</span>
+          </button>
         </nav>
       </header>
 
@@ -89,21 +108,25 @@ function Workspace() {
             </div>
           </div>
 
-          <div className="status-grid">
-            <div><strong>{graph.nodes.length}</strong><span>nodes</span></div>
-            <div><strong>{graph.edges.length}</strong><span>edges</span></div>
-            <div><strong>{graph.errors.length}</strong><span>issues</span></div>
+          <div className="panel-meta">
+            <div className="status-grid">
+              <div><strong>{graph.nodes.length}</strong><span>nodes</span></div>
+              <div><strong>{graph.edges.length}</strong><span>edges</span></div>
+              <div><strong>{graph.errors.length}</strong><span>issues</span></div>
+            </div>
+
+            {graph.errors.length > 0 && (
+              <div className="issues">
+                {graph.errors.slice(0, 5).map((error, index) => (
+                  <p key={`${error.message}-${index}`}>L{error.loc.line}: {error.message}</p>
+                ))}
+              </div>
+            )}
           </div>
 
-          {graph.errors.length > 0 && (
-            <div className="issues">
-              {graph.errors.slice(0, 5).map((error, index) => (
-                <p key={`${error.message}-${index}`}>L{error.loc.line}: {error.message}</p>
-              ))}
-            </div>
-          )}
-
-          <CodeEditor value={config} onChange={setConfig} />
+          <div className="config-textarea-area">
+            <CodeEditor value={config} onChange={setConfig} />
+          </div>
         </div>
       </aside>
 
