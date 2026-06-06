@@ -1,8 +1,9 @@
-import { useMemo, useRef } from "react";
+import { useId, useMemo, useRef } from "react";
 
 interface CodeEditorProps {
   value: string;
   onChange: (value: string) => void;
+  label?: string;
 }
 
 const blockKeywords = new Set(["http", "server", "location", "upstream", "stream", "map", "events"]);
@@ -21,16 +22,20 @@ const directiveKeywords = new Set([
   "ssl_certificate_key"
 ]);
 
-export function CodeEditor({ value, onChange }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, label = "Nginx configuration" }: CodeEditorProps) {
+  const editorId = useId();
   const highlightRef = useRef<HTMLPreElement>(null);
   const highlighted = useMemo(() => highlightNginx(value), [value]);
 
   return (
     <div className="code-editor">
+      <label className="sr-only" htmlFor={editorId}>{label}</label>
       <pre ref={highlightRef} className="code-highlight" aria-hidden="true">
         <code dangerouslySetInnerHTML={{ __html: highlighted }} />
       </pre>
       <textarea
+        id={editorId}
+        aria-label={label}
         spellCheck={false}
         value={value}
         onChange={(event) => onChange(event.target.value)}
