@@ -20,6 +20,12 @@ const start = 80;
 
 export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: string, layout: LayoutDirection = "horizontal") {
   const lowerQuery = query.trim().toLowerCase();
+  const queryActive = lowerQuery.length > 0;
+  const matchedNodeIds = new Set(
+    queryActive
+      ? graph.nodes.filter((node) => searchable(node).includes(lowerQuery)).map((node) => node.id)
+      : []
+  );
   const connected = new Set<string>();
   if (selectedId) {
     connected.add(selectedId);
@@ -34,8 +40,15 @@ export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: st
   const buckets = new Map<number, TopologyNode[]>();
   graph.nodes.forEach((node) => {
     const rank = ranks[node.type];
-    buckets.set(rank, [...(buckets.get(rank) || []), node]);
+    const bucket = buckets.get(rank);
+    if (bucket) {
+      bucket.push(node);
+    } else {
+      buckets.set(rank, [node]);
+    }
   });
+  const nodeIndexes = new Map<string, number>();
+  buckets.forEach((bucket) => bucket.forEach((node, index) => nodeIndexes.set(node.id, index)));
   const maxBucketSize = Math.max(1, ...[...buckets.values()].map((bucket) => bucket.length));
   const horizontalCenter = start + ((maxBucketSize - 1) * horizontalNodeGap) / 2;
   const verticalCenter = start + ((maxBucketSize - 1) * verticalNodeGap) / 2;
@@ -43,9 +56,11 @@ export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: st
   const nodes: Node[] = graph.nodes.map((node) => {
     const rank = ranks[node.type];
     const bucket = buckets.get(rank) || [];
-    const index = bucket.findIndex((item) => item.id === node.id);
-    const matches = lowerQuery.length > 0 && searchable(node).includes(lowerQuery);
+    const index = nodeIndexes.get(node.id) || 0;
+    const matches = matchedNodeIds.has(node.id);
     const related = selectedId ? connected.has(node.id) : false;
+    const dimmedBySelection = Boolean(selectedId && !related && selectedId !== node.id);
+    const dimmedByQuery = queryActive && !matches;
     return {
       id: node.id,
       type: "nginxNode",
@@ -63,28 +78,37 @@ export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: st
         layout,
         matches,
         related,
-        dimmed: Boolean(selectedId && !related && selectedId !== node.id)
+        dimmed: dimmedBySelection || dimmedByQuery
       }
     };
   });
 
   const edgeGroups = new Map<string, number>();
+  const sourceEdgeIndexes = new Map<string, number>();
+  const sourceEdgeCounts = new Map<string, number>();
   graph.edges.forEach((edge) => {
     const key = `${edge.source}->${edge.target}`;
     edgeGroups.set(key, (edgeGroups.get(key) || 0) + 1);
+    const sourceIndex = sourceEdgeCounts.get(edge.source) || 0;
+    sourceEdgeIndexes.set(edge.id, sourceIndex);
+    sourceEdgeCounts.set(edge.source, sourceIndex + 1);
   });
   const edgeIndexes = new Map<string, number>();
 
   const edges: Edge[] = graph.edges.map((edge) => {
     const selected = selectedId && (edge.source === selectedId || edge.target === selectedId);
-    const matches = lowerQuery.length > 0 && edge.label?.toLowerCase().includes(lowerQuery);
+    const matches = queryActive && (
+      Boolean(edge.label?.toLowerCase().includes(lowerQuery))
+      || matchedNodeIds.has(edge.source)
+      || matchedNodeIds.has(edge.target)
+    );
     const key = `${edge.source}->${edge.target}`;
     const siblingCount = edgeGroups.get(key) || 1;
     const siblingIndex = edgeIndexes.get(key) || 0;
     edgeIndexes.set(key, siblingIndex + 1);
-    const sourceFanout = graph.edges.filter((item) => item.source === edge.source).findIndex((item) => item.id === edge.id);
+    const sourceFanout = sourceEdgeIndexes.get(edge.id) || 0;
     const offset = (siblingIndex - (siblingCount - 1) / 2) * 32 + ((sourceFanout % 5) - 2) * 12;
-    const dimmed = Boolean(selectedId && !selected);
+    const dimmed = Boolean((selectedId && !selected) || (queryActive && !matches));
     return {
       id: edge.id,
       source: edge.source,
