@@ -7,7 +7,7 @@ import { buildTopology, type ConfigIssue, type IssueSeverity, type TopologyEdge,
 import { sampleConfig } from "./sampleConfig";
 import { NginxNode } from "./components/NginxNode";
 import { LaneGroup } from "./components/LaneGroup";
-import { CodeEditor } from "./components/CodeEditor";
+import { CodeEditor, type CodeEditorHandle } from "./components/CodeEditor";
 import { FlowEdge } from "./components/FlowEdge";
 import { toFlowElements } from "./graphLayout";
 import "./styles.css";
@@ -64,7 +64,8 @@ const copy = {
     noConnections: "No connected edges.",
     flowEdge: "flow edge",
     dragEdge: "Drag the lower edge",
-    issuePanelHint: "Review parser errors and advisory checks together."
+    issuePanelHint: "Review parser errors and advisory checks together.",
+    jumpToLine: "Click an issue to jump to its configuration line."
   },
   zh: {
     switchLanguage: "Switch to English",
@@ -105,7 +106,8 @@ const copy = {
     noConnections: "无关联连线。",
     flowEdge: "拓扑连线",
     dragEdge: "拖动下边界调整高度",
-    issuePanelHint: "统一查看解析错误与配置建议。"
+    issuePanelHint: "统一查看解析错误与配置建议。",
+    jumpToLine: "点击问题可快速跳转到对应配置行。"
   }
 } as const;
 
@@ -174,6 +176,7 @@ function Workspace() {
   const [leftPanelWidth, setLeftPanelWidth] = useState(340);
   const [canvasFocused, setCanvasFocused] = useState(false);
   const flowRef = useRef<HTMLDivElement>(null);
+  const editorRef = useRef<CodeEditorHandle>(null);
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
   const { fitView } = useReactFlow();
   const text = copy[language];
@@ -294,6 +297,17 @@ function Workspace() {
     setStatusMessage(language === "zh" ? "配置面板宽度已更新" : "Configuration panel width updated");
   }, [language]);
 
+  const focusIssueLine = useCallback((line: number) => {
+    editorRef.current?.focusLine(line);
+    setStatusMessage(language === "zh" ? `已定位到第 ${line} 行` : `Jumped to line ${line}`);
+  }, [language]);
+
+  const onIssueKeyDown = useCallback((event: React.KeyboardEvent<HTMLButtonElement>, line: number) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    focusIssueLine(line);
+  }, [focusIssueLine]);
+
   return (
     <div
       className={`app-shell ${theme} ${leftCollapsed ? "panel-collapsed" : ""} ${canvasFocused ? "canvas-focused" : ""}`}
@@ -401,13 +415,25 @@ function Workspace() {
                 handleStyle={{ background: "linear-gradient(180deg, transparent, color-mix(in srgb, var(--warn) 38%, var(--accent-2) 62%), transparent)" }}
               >
                 <div style={{ padding: "8px 10px 10px", display: "grid", gap: 8 }}>
-                  <div style={{ color: "var(--muted)", fontSize: 11 }}>{text.issuePanelHint}</div>
+                  <div style={{ color: "var(--muted)", fontSize: 11 }}>{text.issuePanelHint} {text.jumpToLine}</div>
                   {visibleIssues.map((issue) => (
-                    <p key={issue.id} style={{ margin: 0, fontSize: 13, lineHeight: 1.4, color: issueColor(issue.severity) }}>
-                      <strong>[{translateSeverity(issue.severity, language)}]</strong> L{issue.loc.line}: {translateIssue(issue, language)}
-                      {issue.suggestionKey ? <br /> : null}
-                      {issue.suggestionKey ? <span style={{ color: "var(--muted)" }}>{translateIssueSuggestion(issue, language)}</span> : null}
-                    </p>
+                    <button
+                      key={issue.id}
+                      type="button"
+                      className="issue-item"
+                      onClick={() => focusIssueLine(issue.loc.line)}
+                      onKeyDown={(event) => onIssueKeyDown(event, issue.loc.line)}
+                      title={language === "zh" ? `定位到第 ${issue.loc.line} 行` : `Jump to line ${issue.loc.line}`}
+                    >
+                      <span className="issue-item__message" style={{ display: "block", fontSize: 13, lineHeight: 1.4, color: "var(--warn)" }}>
+                        <strong>[{translateSeverity(issue.severity, language)}]</strong> L{issue.loc.line}: {translateIssue(issue, language)}
+                      </span>
+                      {issue.suggestionKey ? (
+                        <span className="issue-item__suggestion" style={{ display: "block", color: "var(--warn)", fontSize: 12, lineHeight: 1.4, marginTop: 3, opacity: 0.88 }}>
+                          {translateIssueSuggestion(issue, language)}
+                        </span>
+                      ) : null}
+                    </button>
                   ))}
                 </div>
               </IssuePanelShell>
@@ -415,7 +441,7 @@ function Workspace() {
           </div>
 
           <div className="config-textarea-area">
-            <CodeEditor value={config} onChange={setConfig} label={text.configuration} />
+            <CodeEditor ref={editorRef} value={config} onChange={setConfig} label={text.configuration} />
           </div>
         </div>
 

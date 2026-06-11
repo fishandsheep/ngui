@@ -128,4 +128,87 @@ describe("App accessibility and interaction states", () => {
     expect(issues).toBeInTheDocument();
     expect(issues.textContent).toContain("[INFO] L1: Location \"/docs\" has no recognized terminal routing directive.");
   });
+
+  it("jumps to the matching config line when an issue is clicked", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+      target: { value: "events {}\nhttp { server { location /docs { add_header X-Test ok; } } }" }
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    const issues = screen.getByLabelText("3 configuration issues");
+    const issueButtons = issues.querySelectorAll("button.issue-item");
+    expect(issueButtons).toHaveLength(3);
+
+    fireEvent.click(issueButtons[0]);
+
+    const textarea = screen.getByRole("textbox", { name: "Nginx configuration" }) as HTMLTextAreaElement;
+    expect(textarea).toHaveFocus();
+    expect(textarea.selectionStart).toBeGreaterThan(0);
+    expect(document.querySelector('.code-line-active[data-line="2"]')).toBeInTheDocument();
+  });
+
+  it("keeps issue line jump available after switching to Chinese", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+      target: { value: "events {}\nhttp { server { location /docs { add_header X-Test ok; } } }" }
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Chinese" }));
+
+    const issues = screen.getByLabelText("3 个配置问题");
+    const issueButtons = issues.querySelectorAll("button.issue-item");
+    expect(issueButtons).toHaveLength(3);
+
+    fireEvent.keyDown(issueButtons[0], { key: "Enter", code: "Enter" });
+
+    const textarea = screen.getByRole("textbox", { name: "Nginx 配置" }) as HTMLTextAreaElement;
+    expect(textarea).toHaveFocus();
+    expect(document.querySelector('.code-line-active[data-line="2"]')).toBeInTheDocument();
+  });
+
+  it("keeps issue line and jump target exactly aligned when blank lines exist", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+      target: {
+        value: [
+          "events {}",
+          "",
+          "http {",
+          "  server {",
+          "    location /docs {",
+          "      add_header X-Test ok;",
+          "    }",
+          "  }",
+          "}"
+        ].join("\n")
+      }
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    const issues = screen.getByLabelText("3 configuration issues");
+    const issueButtons = [...issues.querySelectorAll("button.issue-item")];
+    const locationIssue = issueButtons.find((button) => button.textContent?.includes('Location "/docs"'));
+    expect(locationIssue).toBeDefined();
+    expect(locationIssue?.textContent).toContain("L5:");
+
+    fireEvent.click(locationIssue!);
+
+    expect(document.querySelector('.code-line-active[data-line="5"]')).toBeInTheDocument();
+    expect(document.querySelector('.code-gutter-line-active[data-line="5"]')).toBeInTheDocument();
+  });
 });

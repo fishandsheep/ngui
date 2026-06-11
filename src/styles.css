@@ -420,6 +420,32 @@ button:disabled {
   margin-bottom: 0;
 }
 
+.issue-item {
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 8px 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  display: block;
+  text-align: left;
+  background: color-mix(in srgb, var(--panel) 86%, transparent);
+  color: var(--warn);
+}
+
+.issue-item:hover,
+.issue-item:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--line));
+  color: var(--warn);
+  outline: none;
+  background: color-mix(in srgb, var(--panel-2) 90%, var(--accent-2) 10%);
+}
+
+.issue-item__message,
+.issue-item__suggestion {
+  color: var(--warn);
+}
+
 .config-textarea-area {
   min-height: 0;
   height: 100%;
@@ -440,18 +466,36 @@ button:disabled {
   background: #fbfcff;
 }
 
+.code-gutter,
 .code-editor textarea,
 .code-highlight {
   position: absolute;
-  inset: 0;
   margin: 0;
-  padding: 12px;
   overflow: auto;
   white-space: pre;
   tab-size: 2;
   font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   font-size: 13px;
   line-height: 1.55;
+}
+
+.code-gutter {
+  inset: 0 auto 0 0;
+  width: 52px;
+  padding: 12px 8px 12px 10px;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 74%, transparent);
+  text-align: right;
+  overflow: hidden;
+  z-index: 1;
+  user-select: none;
+}
+
+.code-editor textarea,
+.code-highlight {
+  inset: 0 0 0 52px;
+  padding: 12px;
 }
 
 .code-editor textarea {
@@ -471,13 +515,36 @@ button:disabled {
 .code-highlight {
   pointer-events: none;
   color: var(--text);
-  z-index: 1;
+  z-index: 2;
 }
 
 .code-highlight code {
   display: block;
   min-width: max-content;
   min-height: 100%;
+}
+
+.code-line {
+  display: block;
+  margin: 0 -4px;
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+.code-gutter-line {
+  display: block;
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+.code-line-active {
+  background: color-mix(in srgb, var(--accent-2) 24%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-2) 40%, transparent);
+}
+
+.code-gutter-line-active {
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent-2) 24%, transparent);
 }
 
 .tok-comment {
