@@ -18,8 +18,8 @@ const graph: TopologyGraph = {
 describe("topology search states", () => {
   it("highlights matching nodes and dims unmatched nodes", () => {
     const elements = toFlowElements(graph, "api");
-    const api = elements.nodes.find((node) => node.id === "api");
-    const server = elements.nodes.find((node) => node.id === "server");
+    const api = elements.nodes.find((node) => node.id === "server::api");
+    const server = elements.nodes.find((node) => node.id === "server::server");
 
     expect(api?.data.matches).toBe(true);
     expect(api?.data.dimmed).toBe(false);
@@ -29,12 +29,36 @@ describe("topology search states", () => {
 
   it("keeps matching-node connections visible and dims unrelated edges", () => {
     const elements = toFlowElements(graph, "api");
-    const apiEdge = elements.edges.find((edge) => edge.id === "api-edge");
-    const staticEdge = elements.edges.find((edge) => edge.id === "static-edge");
+    const apiEdge = elements.edges.find((edge) => edge.id === "server::api-edge");
+    const staticEdge = elements.edges.find((edge) => edge.id === "server::static-edge");
 
     expect(apiEdge?.data?.matches).toBe(true);
     expect(apiEdge?.data?.dimmed).toBe(false);
     expect(staticEdge?.data?.matches).toBe(false);
     expect(staticEdge?.data?.dimmed).toBe(true);
+  });
+
+  it("groups multiple entry points that feed the same server into one lane", () => {
+    const groupedGraph: TopologyGraph = {
+      nodes: [
+        { id: "entry-80", type: "entry", label: "http 80", details: [] },
+        { id: "entry-443", type: "entry", label: "http 443 ssl", details: [] },
+        { id: "server", type: "server", label: "example.com", details: [] },
+        { id: "route", type: "route", label: "location /api", details: [] }
+      ],
+      edges: [
+        { id: "entry80-server", source: "entry-80", target: "server", type: "flow", label: "serves" },
+        { id: "entry443-server", source: "entry-443", target: "server", type: "flow", label: "serves" },
+        { id: "server-route", source: "server", target: "route", type: "flow", label: "matches" }
+      ],
+      errors: []
+    };
+
+    const elements = toFlowElements(groupedGraph);
+
+    expect(elements.nodes.filter((node) => node.type === "laneGroup")).toHaveLength(1);
+    expect(elements.nodes.some((node) => node.id === "server::entry-80")).toBe(true);
+    expect(elements.nodes.some((node) => node.id === "server::entry-443")).toBe(true);
+    expect(elements.edges.some((edge) => edge.id === "server::server-route")).toBe(true);
   });
 });

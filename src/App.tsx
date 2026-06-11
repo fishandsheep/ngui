@@ -6,12 +6,13 @@ import { toPng } from "html-to-image";
 import { buildTopology, type TopologyEdge, type TopologyGraph, type TopologyNode } from "./parser";
 import { sampleConfig } from "./sampleConfig";
 import { NginxNode } from "./components/NginxNode";
+import { LaneGroup } from "./components/LaneGroup";
 import { CodeEditor } from "./components/CodeEditor";
 import { FlowEdge } from "./components/FlowEdge";
 import { toFlowElements } from "./graphLayout";
 import "./styles.css";
 
-const nodeTypes = { nginxNode: NginxNode };
+const nodeTypes = { nginxNode: NginxNode, laneGroup: LaneGroup };
 const edgeTypes = { flowEdge: FlowEdge };
 type Language = "en" | "zh";
 
@@ -143,8 +144,9 @@ function Workspace() {
   };
 
   const onNodeClick = (_: unknown, node: Node) => {
+    if (node.type !== "nginxNode") return;
     setSelected(node.data as TopologyNode);
-    setSelectedId(node.id);
+    setSelectedId((node.data as TopologyNode & { nodeId?: string }).nodeId || node.id);
   };
 
   const onEdgeClick = (_: unknown, edge: Edge) => {
