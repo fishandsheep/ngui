@@ -62,7 +62,7 @@ describe("nginx parser", () => {
 
   it("reports incomplete blocks without dropping partial topology", () => {
     const graph = buildTopology("http { server { listen 80; location / { proxy_pass http://app; }");
-    expect(graph.errors.some((error) => error.message.includes("Unclosed block"))).toBe(true);
+    expect(graph.issues.some((issue) => issue.source === "parse" && String(issue.params?.message).includes("Unclosed block"))).toBe(true);
     expect(graph.nodes.some((node) => node.type === "entry")).toBe(true);
   });
 });
@@ -77,5 +77,37 @@ describe("topology model", () => {
     expect(graph.nodes.some((node) => node.type === "target" && node.label.includes("10.0.0.1"))).toBe(true);
     expect(graph.nodes.some((node) => node.type === "variable" && node.label === "$backend")).toBe(true);
     expect(graph.edges.some((edge) => edge.type === "dynamic")).toBe(true);
+  });
+
+  it("emits a warning when a server block has no listen directive", () => {
+    const graph = buildTopology("http { server { server_name example.com; } }");
+    expect(graph.issues.some((issue) => issue.messageKey === "server.missingListen" && issue.severity === "warning")).toBe(true);
+  });
+
+  it("emits a warning for an empty upstream", () => {
+    const graph = buildTopology("http { upstream app {} }");
+    expect(graph.issues.some((issue) => issue.messageKey === "upstream.empty" && issue.severity === "warning")).toBe(true);
+  });
+
+  it("emits a warning for undefined upstream references", () => {
+    const graph = buildTopology("http { server { listen 80; location / { proxy_pass http://missing_pool; } } }");
+    expect(graph.issues.some((issue) => issue.messageKey === "pass.undefinedUpstream" && issue.severity === "warning")).toBe(true);
+  });
+
+  it("emits a warning for duplicate upstream names", () => {
+    const graph = buildTopology("http { upstream app { server 127.0.0.1:8080; } upstream app { server 127.0.0.1:8081; } }");
+    expect(graph.issues.some((issue) => issue.messageKey === "upstream.duplicateName" && issue.severity === "warning")).toBe(true);
+  });
+
+  it("emits an info issue when using if inside a location", () => {
+    const graph = buildTopology("http { server { listen 80; location / { if ($request_method = POST) { return 405; } } } }");
+    expect(graph.issues.some((issue) => issue.messageKey === "location.containsIf" && issue.severity === "info")).toBe(true);
+  });
+
+  it("includes both parse issues and check issues in the same graph", () => {
+    const graph = buildTopology("http { server { location / { proxy_pass http://missing_pool; }");
+    expect(graph.issues.some((issue) => issue.source === "parse")).toBe(true);
+    expect(graph.issues.some((issue) => issue.source === "check" && issue.messageKey === "server.missingListen")).toBe(true);
+    expect(graph.issues.some((issue) => issue.source === "check" && issue.messageKey === "pass.undefinedUpstream")).toBe(true);
   });
 });

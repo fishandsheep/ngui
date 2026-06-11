@@ -12,7 +12,7 @@ const graph: TopologyGraph = {
     { id: "api-edge", source: "server", target: "api", type: "flow", label: "proxy_pass" },
     { id: "static-edge", source: "server", target: "static", type: "flow", label: "assets" }
   ],
-  errors: []
+  issues: []
 };
 
 describe("topology search states", () => {
@@ -51,7 +51,7 @@ describe("topology search states", () => {
         { id: "entry443-server", source: "entry-443", target: "server", type: "flow", label: "serves" },
         { id: "server-route", source: "server", target: "route", type: "flow", label: "matches" }
       ],
-      errors: []
+      issues: []
     };
 
     const elements = toFlowElements(groupedGraph);

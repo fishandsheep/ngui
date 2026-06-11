@@ -31,6 +31,19 @@ export interface ParseError {
   loc: SourceLocation;
 }
 
+export type IssueSeverity = "error" | "warning" | "info";
+
+export interface ConfigIssue {
+  id: string;
+  severity: IssueSeverity;
+  category: string;
+  messageKey: string;
+  params?: Record<string, string | number>;
+  loc: SourceLocation;
+  suggestionKey?: string;
+  source: "parse" | "check";
+}
+
 export interface ParseResult {
   ast: NginxBlock;
   errors: ParseError[];
@@ -69,5 +82,5 @@ export interface TopologyEdge {
 export interface TopologyGraph {
   nodes: TopologyNode[];
   edges: TopologyEdge[];
-  errors: ParseError[];
+  issues: ConfigIssue[];
 }

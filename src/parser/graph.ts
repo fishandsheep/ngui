@@ -1,5 +1,6 @@
+import { analyzeNginxConfig } from "./analyzer";
 import { isBlock, parseNginxConfig } from "./parser";
-import type { NginxBlock, NginxDirective, NginxNode, ParseError, TopologyEdge, TopologyGraph, TopologyNode } from "./types";
+import type { ConfigIssue, NginxBlock, NginxDirective, NginxNode, ParseError, TopologyEdge, TopologyGraph, TopologyNode } from "./types";
 
 const passDirectives = new Set(["proxy_pass", "fastcgi_pass", "grpc_pass", "uwsgi_pass", "scgi_pass", "memcached_pass"]);
 
@@ -11,6 +12,7 @@ export function buildTopology(input: string): TopologyGraph {
 export function buildTopologyFromAst(ast: NginxBlock, errors: ParseError[] = []): TopologyGraph {
   const nodes = new Map<string, TopologyNode>();
   const edges = new Map<string, TopologyEdge>();
+  const issues = [...errors.map(parseErrorToIssue), ...analyzeNginxConfig(ast)];
   const upstreams = collectUpstreams(ast, nodes, edges);
   const maps = collectMaps(ast, nodes);
 
@@ -73,7 +75,7 @@ export function buildTopologyFromAst(ast: NginxBlock, errors: ParseError[] = [])
     });
   });
 
-  return { nodes: [...nodes.values()], edges: [...edges.values()], errors };
+  return { nodes: [...nodes.values()], edges: [...edges.values()], issues };
 }
 
 function collectUpstreams(ast: NginxBlock, nodes: Map<string, TopologyNode>, edges: Map<string, TopologyEdge>) {
@@ -269,4 +271,16 @@ function hash(value: string) {
   let h = 0;
   for (let i = 0; i < value.length; i += 1) h = Math.imul(31, h) + value.charCodeAt(i) | 0;
   return Math.abs(h).toString(36);
+}
+
+function parseErrorToIssue(error: ParseError, index: number): ConfigIssue {
+  return {
+    id: `parse:${index}:${error.loc.line}:${error.loc.column}`,
+    severity: "error",
+    category: "parse",
+    messageKey: "parse.raw",
+    params: { message: error.message },
+    loc: error.loc,
+    source: "parse"
+  };
 }

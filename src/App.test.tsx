@@ -70,7 +70,7 @@ describe("App accessibility and interaction states", () => {
   it("switches concise interface copy between English and Chinese", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "切换到中文" }));
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Chinese" }));
 
     expect(screen.getByRole("searchbox", { name: "搜索拓扑" })).toHaveAttribute("placeholder", "搜索 server、upstream、backend...");
     expect(screen.getByRole("heading", { name: "拓扑详情" })).toBeInTheDocument();
@@ -79,5 +79,53 @@ describe("App accessibility and interaction states", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to English" }));
     expect(screen.getByRole("heading", { name: "Topology details" })).toBeInTheDocument();
+  });
+
+  it("shows unified issue count and English issue messages", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+      target: { value: "http { server { listen 80; location / { proxy_pass http://missing_pool; } } }" }
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    const issues = screen.getByLabelText("2 configuration issues");
+    expect(issues).toBeInTheDocument();
+    expect(issues.textContent).toContain("[INFO] L1: HTTP server block has no server_name directive.");
+  });
+
+  it("translates issue messages after switching to Chinese", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+      target: { value: "http { server { listen 80; location / { proxy_pass http://missing_pool; } } }" }
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Switch to Chinese" }));
+    const issues = screen.getByLabelText("2 个配置问题");
+    expect(issues).toBeInTheDocument();
+    expect(issues.textContent).toContain("[提示] L1: HTTP server 块没有 server_name 指令。");
+  });
+
+  it("renders issues even when the config has only advisory checks", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+      target: { value: "http { server { listen 80; location /docs { add_header X-Test ok; } } }" }
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    const issues = screen.getByLabelText("2 configuration issues");
+    expect(issues).toBeInTheDocument();
+    expect(issues.textContent).toContain("[INFO] L1: Location \"/docs\" has no recognized terminal routing directive.");
   });
 });
