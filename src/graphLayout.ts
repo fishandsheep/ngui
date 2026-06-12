@@ -19,7 +19,7 @@ const verticalNodeGap = 250;
 const start = 80;
 const lanePaddingX = 28;
 const lanePaddingY = 26;
-const laneHeaderHeight = 34;
+const laneHeaderHeight = 0;
 const laneGap = 72;
 const groupNodeWidth = 216;
 const groupNodeHeight = 78;
@@ -427,7 +427,7 @@ function computeLaneBounds(nodes: Array<{ x: number; y: number }>) {
   }
 
   const minX = Math.min(...nodes.map((node) => node.x)) - groupBoundsPadding;
-  const minY = Math.min(...nodes.map((node) => node.y)) - groupBoundsPadding;
+  const minY = 0;
   const maxX = Math.max(...nodes.map((node) => node.x + groupNodeWidth)) + groupBoundsPadding;
   const maxY = Math.max(...nodes.map((node) => node.y + groupNodeHeight)) + groupBoundsPadding;
 

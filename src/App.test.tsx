@@ -11,7 +11,8 @@ vi.mock("reactflow", () => ({
   ControlButton: ({ children, ...props }: { children: ReactNode; title?: string; onClick?: () => void }) => <button {...props}>{children}</button>,
   MiniMap: () => null,
   Panel: ({ children }: { children: ReactNode }) => <div>{children}</div>,
-  useReactFlow: () => ({ fitView: vi.fn() })
+  useReactFlow: () => ({ fitView: vi.fn() }),
+  applyNodeChanges: (_changes: unknown, nodes: unknown) => nodes
 }));
 
 vi.mock("html-to-image", () => ({ toPng: vi.fn() }));

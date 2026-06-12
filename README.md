@@ -2,6 +2,8 @@
 
 > Upload `nginx -T` output, inspect the parsed configuration, and explore an animated routing topology in the browser.
 
+[中文文档](README-zh.md)
+
 ![React](https://img.shields.io/badge/React-18-61dafb?logo=react&logoColor=111)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=fff)
 ![Vite](https://img.shields.io/badge/Vite-5-646cff?logo=vite&logoColor=fff)
@@ -27,9 +29,29 @@ Nginx UI Topology is a local-first web tool for visualizing nginx routing behavi
 - Interactive React Flow canvas with zoom, pan, minimap, fit view, and layout rotation.
 - Visual nodes for entries, servers, routes, upstreams, dynamic variables, and backend targets.
 - Animated data-flow edges with selection highlighting and unrelated-node dimming.
+- Drag nodes to rearrange the topology with smooth lerp-based following.
+- Configuration analysis that detects common issues and misconfigurations.
 - Details panel for selected nodes and edges, including source directives and line information.
 - Export topology as PNG or JSON.
+- Bilingual interface: English and Chinese.
 - Local-first processing: configuration content is not uploaded to a server.
+
+## Configuration Analysis
+
+The built-in analyzer inspects the parsed AST and reports issues in real time. Issues are displayed in the left panel, sorted by severity (`error` > `warning` > `info`), with the source line number and a one-click jump to the editor.
+
+### Detected checks
+
+| Severity | Check | Description |
+|----------|-------|-------------|
+| Warning | Empty upstream | An `upstream` block has no `server` directives. |
+| Warning | Missing `listen` | A `server` block has no `listen` directive. |
+| Warning | Duplicate `listen` | Two `listen` directives in the same `server` share the same address and port. |
+| Warning | Undefined upstream | A `proxy_pass` (or `fastcgi_pass`, `grpc_pass`, etc.) references an upstream name that is never defined. |
+| Warning | Duplicate upstream name | Multiple `upstream` blocks share the same name. |
+| Info | Missing `server_name` | An HTTP `server` block has no `server_name` directive. |
+| Info | `if` directive usage | A `server` or `location` block contains an `if` directive, which is a known source of unexpected behavior. |
+| Info | No terminal route | A `location` block has no `proxy_pass`, `return`, `try_files`, or similar directive that determines the response. |
 
 ## Quick Start
 
@@ -48,10 +70,12 @@ http://localhost:5173/
 
 1. Run `nginx -T` on a machine with nginx installed.
 2. Upload the generated output or paste it into the left configuration editor.
-3. Use search to find server names, upstreams, backends, or directives.
-4. Click nodes or edges to inspect details.
-5. Use **Rotate layout** to switch between left-to-right and top-to-bottom topology layouts.
-6. Export the result as PNG or JSON when needed.
+3. Review configuration issues in the issues panel. Click an issue to jump to the source line.
+4. Use search to find server names, upstreams, backends, or directives.
+5. Click nodes or edges to inspect details.
+6. Drag nodes to rearrange the topology layout.
+7. Use **Rotate layout** to switch between left-to-right and top-to-bottom topology layouts.
+8. Export the result as PNG or JSON when needed.
 
 ## Supported Nginx Concepts
 

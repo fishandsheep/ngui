@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import ReactFlow, { Background, ControlButton, Controls, MiniMap, Panel, ReactFlowProvider, useReactFlow, type Edge, type Node } from "reactflow";
+import ReactFlow, { Background, ControlButton, Controls, MiniMap, Panel, ReactFlowProvider, useReactFlow, applyNodeChanges, type Edge, type Node, type OnNodesChange } from "reactflow";
 import "reactflow/dist/style.css";
-import { Download, FileJson, Languages, Maximize, Maximize2, Minimize, Moon, PanelLeftClose, PanelLeftOpen, RefreshCcw, RefreshCw, Search, Sun, Upload } from "lucide-react";
+import { Download, FileJson, Github, Languages, Maximize, Maximize2, Minimize, Moon, PanelLeftClose, PanelLeftOpen, RefreshCcw, RefreshCw, Search, Sun, Upload } from "lucide-react";
 import { toPng } from "html-to-image";
 import { buildTopology, type ConfigIssue, type IssueSeverity, type TopologyEdge, type TopologyGraph, type TopologyNode } from "./parser";
 import { sampleConfig } from "./sampleConfig";
@@ -186,6 +186,28 @@ function Workspace() {
   const topologyUpdating = parsedConfig !== config || topologyQuery !== query;
   const graph = useMemo<TopologyGraph>(() => buildTopology(parsedConfig), [parsedConfig]);
   const elements = useMemo(() => toFlowElements(graph, topologyQuery, selectedId, layout), [graph, topologyQuery, selectedId, layout]);
+  const [flowNodes, setFlowNodes] = useState<Node[]>([]);
+  const onNodesChange: OnNodesChange = useCallback((changes) => {
+    setFlowNodes(nds => applyNodeChanges(changes, nds));
+  }, []);
+  const structureKeyRef = useRef("");
+
+  useEffect(() => {
+    const key = graph.nodes.map(n => n.id).join(",") + layout;
+    if (key !== structureKeyRef.current) {
+      structureKeyRef.current = key;
+      setFlowNodes(elements.nodes);
+    } else {
+      setFlowNodes(prev => {
+        const prevById = new Map(prev.map(n => [n.id, n]));
+        return elements.nodes.map(computed => {
+          const existing = prevById.get(computed.id);
+          return existing ? { ...computed, position: existing.position } : computed;
+        });
+      });
+    }
+  }, [elements.nodes, graph, layout]);
+
   const visibleIssues = useMemo(
     () => [...graph.issues].sort(compareIssues).slice(0, 5),
     [graph.issues]
@@ -352,6 +374,15 @@ function Workspace() {
             {fullscreen ? <Minimize size={16} /> : <Maximize size={16} />}
             <span>{fullscreen ? text.exitFullscreen : text.fullscreen}</span>
           </button>
+          <a
+            href="https://github.com/fishandsheep/ngui"
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label="GitHub"
+            title="GitHub"
+          >
+            <Github size={16} />
+          </a>
         </nav>
       </header>
 
@@ -458,13 +489,14 @@ function Workspace() {
 
       <main className="canvas" ref={flowRef} aria-label={text.topology} aria-busy={topologyUpdating}>
         <ReactFlow
-          nodes={elements.nodes}
+          nodes={flowNodes}
           edges={elements.edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
           minZoom={0.15}
           maxZoom={1.8}
+          onNodesChange={onNodesChange}
           onNodeClick={onNodeClick}
           onEdgeClick={onEdgeClick}
           onPaneClick={() => {
@@ -488,7 +520,7 @@ function Workspace() {
             >
               {canvasFocused ? <Minimize size={16} /> : <Maximize2 size={16} />}
             </button>
-            <button aria-label={text.clearSelection} title={text.clearSelection} onClick={() => setSelectedId(undefined)}>
+            <button aria-label={text.clearSelection} title={text.clearSelection} onClick={() => { setSelectedId(undefined); structureKeyRef.current = ""; setFlowNodes(elements.nodes); }}>
               <RefreshCcw size={16} />
             </button>
           </Panel>
