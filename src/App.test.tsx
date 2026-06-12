@@ -26,153 +26,153 @@ describe("App accessibility and interaction states", () => {
   it("provides names for configuration, search, upload, and icon actions", () => {
     render(<App />);
 
-    expect(screen.getByRole("textbox", { name: "Nginx configuration" })).toBeInTheDocument();
-    expect(screen.getByRole("searchbox", { name: "Search topology" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Upload nginx configuration")).toHaveAttribute("type", "file");
-    expect(screen.getByRole("button", { name: "Export topology as JSON" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Fullscreen topology workspace" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Nginx 配置" })).toBeInTheDocument();
+    expect(screen.getByRole("searchbox", { name: "搜索拓扑" })).toBeInTheDocument();
+    expect(screen.getByLabelText("上传 Nginx 配置")).toHaveAttribute("type", "file");
+    expect(screen.getByRole("button", { name: "导出拓扑 JSON" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "拓扑工作区全屏" })).toBeInTheDocument();
   });
 
   it("exposes the configuration panel expansion state", () => {
     render(<App />);
-    const toggle = screen.getByRole("button", { name: "Collapse config panel" });
+    const toggle = screen.getByRole("button", { name: "收起配置面板" });
 
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(toggle);
-    expect(screen.getByRole("button", { name: "Expand config panel" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "展开配置面板" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("announces deferred topology updates while search settles", async () => {
     vi.useFakeTimers();
     render(<App />);
 
-    fireEvent.change(screen.getByRole("searchbox", { name: "Search topology" }), { target: { value: "api" } });
-    expect(screen.getByText("Updating topology...")).toHaveAttribute("role", "status");
+    fireEvent.change(screen.getByRole("searchbox", { name: "搜索拓扑" }), { target: { value: "api" } });
+    expect(screen.getByText("正在更新拓扑...")).toHaveAttribute("role", "status");
 
     await act(async () => {
       vi.advanceTimersByTime(130);
     });
 
-    expect(screen.queryByText("Updating topology...")).not.toBeInTheDocument();
+    expect(screen.queryByText("正在更新拓扑...")).not.toBeInTheDocument();
   });
 
   it("toggles the topology workspace focus mode", () => {
     const { container } = render(<App />);
-    const focusButton = screen.getByRole("button", { name: "Fullscreen topology workspace" });
+    const focusButton = screen.getByRole("button", { name: "拓扑工作区全屏" });
 
     fireEvent.click(focusButton);
     expect(container.querySelector(".app-shell")).toHaveClass("canvas-focused");
-    expect(screen.getByRole("button", { name: "Show side panels" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "显示两侧面板" })).toHaveAttribute("aria-pressed", "true");
 
-    fireEvent.click(screen.getByRole("button", { name: "Show side panels" }));
+    fireEvent.click(screen.getByRole("button", { name: "显示两侧面板" }));
     expect(container.querySelector(".app-shell")).not.toHaveClass("canvas-focused");
   });
 
-  it("switches concise interface copy between English and Chinese", () => {
+  it("switches concise interface copy between Chinese and English", () => {
     render(<App />);
-
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Chinese" }));
-
-    expect(screen.getByRole("searchbox", { name: "搜索拓扑" })).toHaveAttribute("placeholder", "搜索 server、upstream、backend...");
-    expect(screen.getByRole("heading", { name: "拓扑详情" })).toBeInTheDocument();
-    expect(screen.getByText("选择节点或连线，查看来源指令、行号和关联流向。")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Switch to English" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Switch to English" }));
+
+    expect(screen.getByRole("searchbox", { name: "Search topology" })).toHaveAttribute("placeholder", "Search server, upstream, backend...");
     expect(screen.getByRole("heading", { name: "Topology details" })).toBeInTheDocument();
-  });
+    expect(screen.getByText("Select a node or edge to inspect source directives, line numbers, and connected flow.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Switch to Chinese" })).toBeInTheDocument();
 
-  it("shows unified issue count and English issue messages", () => {
-    vi.useFakeTimers();
-    render(<App />);
-
-    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
-      target: { value: "http { server { listen 80; location / { proxy_pass http://missing_pool; } } }" }
-    });
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
-
-    const issues = screen.getByLabelText("2 configuration issues");
-    expect(issues).toBeInTheDocument();
-    expect(issues.textContent).toContain("[INFO] L1: HTTP server block has no server_name directive.");
-  });
-
-  it("translates issue messages after switching to Chinese", () => {
-    vi.useFakeTimers();
-    render(<App />);
-
-    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
-      target: { value: "http { server { listen 80; location / { proxy_pass http://missing_pool; } } }" }
-    });
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
     fireEvent.click(screen.getByRole("button", { name: "Switch to Chinese" }));
+    expect(screen.getByRole("heading", { name: "拓扑详情" })).toBeInTheDocument();
+  });
+
+  it("shows unified issue count and Chinese issue messages", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx 配置" }), {
+      target: { value: "http { server { listen 80; location / { proxy_pass http://missing_pool; } } }" }
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
     const issues = screen.getByLabelText("2 个配置问题");
     expect(issues).toBeInTheDocument();
     expect(issues.textContent).toContain("[提示] L1: HTTP server 块没有 server_name 指令。");
+  });
+
+  it("translates issue messages after switching to English", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx 配置" }), {
+      target: { value: "http { server { listen 80; location / { proxy_pass http://missing_pool; } } }" }
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Switch to English" }));
+    const issues = screen.getByLabelText("2 configuration issues");
+    expect(issues).toBeInTheDocument();
+    expect(issues.textContent).toContain("[INFO] L1: HTTP server block has no server_name directive.");
   });
 
   it("renders issues even when the config has only advisory checks", () => {
     vi.useFakeTimers();
     render(<App />);
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx 配置" }), {
       target: { value: "http { server { listen 80; location /docs { add_header X-Test ok; } } }" }
     });
     act(() => {
       vi.advanceTimersByTime(200);
     });
 
-    const issues = screen.getByLabelText("2 configuration issues");
+    const issues = screen.getByLabelText("2 个配置问题");
     expect(issues).toBeInTheDocument();
-    expect(issues.textContent).toContain("[INFO] L1: Location \"/docs\" has no recognized terminal routing directive.");
+    expect(issues.textContent).toContain("没有识别到终结路由指令");
   });
 
   it("jumps to the matching config line when an issue is clicked", () => {
     vi.useFakeTimers();
     render(<App />);
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx 配置" }), {
       target: { value: "events {}\nhttp { server { location /docs { add_header X-Test ok; } } }" }
     });
     act(() => {
       vi.advanceTimersByTime(200);
     });
-
-    const issues = screen.getByLabelText("3 configuration issues");
-    const issueButtons = issues.querySelectorAll("button.issue-item");
-    expect(issueButtons).toHaveLength(3);
-
-    fireEvent.click(issueButtons[0]);
-
-    const textarea = screen.getByRole("textbox", { name: "Nginx configuration" }) as HTMLTextAreaElement;
-    expect(textarea).toHaveFocus();
-    expect(textarea.selectionStart).toBeGreaterThan(0);
-    expect(document.querySelector('.code-line-active[data-line="2"]')).toBeInTheDocument();
-  });
-
-  it("keeps issue line jump available after switching to Chinese", () => {
-    vi.useFakeTimers();
-    render(<App />);
-
-    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
-      target: { value: "events {}\nhttp { server { location /docs { add_header X-Test ok; } } }" }
-    });
-    act(() => {
-      vi.advanceTimersByTime(200);
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: "Switch to Chinese" }));
 
     const issues = screen.getByLabelText("3 个配置问题");
     const issueButtons = issues.querySelectorAll("button.issue-item");
     expect(issueButtons).toHaveLength(3);
 
-    fireEvent.keyDown(issueButtons[0], { key: "Enter", code: "Enter" });
+    fireEvent.click(issueButtons[0]);
 
     const textarea = screen.getByRole("textbox", { name: "Nginx 配置" }) as HTMLTextAreaElement;
+    expect(textarea).toHaveFocus();
+    expect(textarea.selectionStart).toBeGreaterThan(0);
+    expect(document.querySelector('.code-line-active[data-line="2"]')).toBeInTheDocument();
+  });
+
+  it("keeps issue line jump available after switching to English", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx 配置" }), {
+      target: { value: "events {}\nhttp { server { location /docs { add_header X-Test ok; } } }" }
+    });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Switch to English" }));
+
+    const issues = screen.getByLabelText("3 configuration issues");
+    const issueButtons = issues.querySelectorAll("button.issue-item");
+    expect(issueButtons).toHaveLength(3);
+
+    fireEvent.keyDown(issueButtons[0], { key: "Enter", code: "Enter" });
+
+    const textarea = screen.getByRole("textbox", { name: "Nginx configuration" }) as HTMLTextAreaElement;
     expect(textarea).toHaveFocus();
     expect(document.querySelector('.code-line-active[data-line="2"]')).toBeInTheDocument();
   });
@@ -181,7 +181,7 @@ describe("App accessibility and interaction states", () => {
     vi.useFakeTimers();
     render(<App />);
 
-    fireEvent.change(screen.getByRole("textbox", { name: "Nginx configuration" }), {
+    fireEvent.change(screen.getByRole("textbox", { name: "Nginx 配置" }), {
       target: {
         value: [
           "events {}",
@@ -201,9 +201,9 @@ describe("App accessibility and interaction states", () => {
       vi.advanceTimersByTime(200);
     });
 
-    const issues = screen.getByLabelText("3 configuration issues");
+    const issues = screen.getByLabelText("3 个配置问题");
     const issueButtons = [...issues.querySelectorAll("button.issue-item")];
-    const locationIssue = issueButtons.find((button) => button.textContent?.includes('Location "/docs"'));
+    const locationIssue = issueButtons.find((button) => button.textContent?.includes("L5:"));
     expect(locationIssue).toBeDefined();
     expect(locationIssue?.textContent).toContain("L5:");
 

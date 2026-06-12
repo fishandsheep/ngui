@@ -165,7 +165,7 @@ function Workspace() {
   const [config, setConfig] = useState(sampleConfig);
   const [query, setQuery] = useState("");
   const [theme, setTheme] = useState<"dark" | "light">("dark");
-  const [language, setLanguage] = useState<Language>("en");
+  const [language, setLanguage] = useState<Language>("zh");
   const [selected, setSelected] = useState<TopologyNode | TopologyEdge | null>(null);
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
