@@ -12,6 +12,12 @@ const ranks: Record<TopologyNode["type"], number> = {
 
 export type LayoutDirection = "horizontal" | "vertical";
 
+export interface FlowHighlight {
+  nodeIds?: string[];
+  edgeIds?: string[];
+  active?: boolean;
+}
+
 const horizontalRankGap = 290;
 const horizontalNodeGap = 132;
 const verticalRankGap = 180;
@@ -27,13 +33,13 @@ const groupMinWidth = 320;
 const groupMinHeight = 148;
 const groupBoundsPadding = 18;
 
-export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: string, layout: LayoutDirection = "horizontal") {
+export function toFlowElements(graph: TopologyGraph, query = "", selectedId?: string, layout: LayoutDirection = "horizontal", highlight: FlowHighlight = {}) {
   const lowerQuery = query.trim().toLowerCase();
   const queryActive = lowerQuery.length > 0;
-  const groupedElements = buildServerGroupedElements(graph, lowerQuery, queryActive, selectedId, layout);
+  const groupedElements = buildServerGroupedElements(graph, lowerQuery, queryActive, selectedId, layout, highlight);
   if (groupedElements) return groupedElements;
 
-  return buildDefaultElements(graph, lowerQuery, queryActive, selectedId, layout);
+  return buildDefaultElements(graph, lowerQuery, queryActive, selectedId, layout, highlight);
 }
 
 function buildDefaultElements(
@@ -41,8 +47,12 @@ function buildDefaultElements(
   lowerQuery: string,
   queryActive: boolean,
   selectedId?: string,
-  layout: LayoutDirection = "horizontal"
+  layout: LayoutDirection = "horizontal",
+  highlight: FlowHighlight = {}
 ) {
+  const highlightedNodeIds = new Set(highlight.nodeIds || []);
+  const highlightedEdgeIds = new Set(highlight.edgeIds || []);
+  const highlightActive = Boolean(highlight.active) || highlightedNodeIds.size > 0 || highlightedEdgeIds.size > 0;
   const matchedNodeIds = new Set(
     queryActive
       ? graph.nodes.filter((node) => searchable(node).includes(lowerQuery)).map((node) => node.id)
@@ -80,9 +90,11 @@ function buildDefaultElements(
     const bucket = buckets.get(rank) || [];
     const index = nodeIndexes.get(node.id) || 0;
     const matches = matchedNodeIds.has(node.id);
-    const related = selectedId ? connected.has(node.id) : false;
+    const highlighted = highlightedNodeIds.has(node.id);
+    const related = highlighted || (selectedId ? connected.has(node.id) : false);
     const dimmedBySelection = Boolean(selectedId && !related && selectedId !== node.id);
     const dimmedByQuery = queryActive && !matches;
+    const dimmedByHighlight = highlightActive && !highlighted && !related;
     return {
       id: node.id,
       type: "nginxNode",
@@ -100,7 +112,7 @@ function buildDefaultElements(
         layout,
         matches,
         related,
-        dimmed: dimmedBySelection || dimmedByQuery
+        dimmed: dimmedBySelection || dimmedByQuery || dimmedByHighlight
       }
     };
   });
@@ -118,7 +130,8 @@ function buildDefaultElements(
   const edgeIndexes = new Map<string, number>();
 
   const edges: Edge[] = graph.edges.map((edge) => {
-    const selected = selectedId && (edge.source === selectedId || edge.target === selectedId);
+    const highlighted = highlightedEdgeIds.has(edge.id);
+    const selected = highlighted || Boolean(selectedId && (edge.source === selectedId || edge.target === selectedId));
     const matches = queryActive && (
       Boolean(edge.label?.toLowerCase().includes(lowerQuery))
       || matchedNodeIds.has(edge.source)
@@ -130,7 +143,7 @@ function buildDefaultElements(
     edgeIndexes.set(key, siblingIndex + 1);
     const sourceFanout = sourceEdgeIndexes.get(edge.id) || 0;
     const offset = (siblingIndex - (siblingCount - 1) / 2) * 32 + ((sourceFanout % 5) - 2) * 12;
-    const dimmed = Boolean((selectedId && !selected) || (queryActive && !matches));
+    const dimmed = Boolean((selectedId && !selected) || (queryActive && !matches) || (highlightActive && !highlighted));
     return {
       id: edge.id,
       source: edge.source,
@@ -140,7 +153,7 @@ function buildDefaultElements(
       animated: false,
       label: edge.label,
       type: "flowEdge",
-      className: `${edge.type}-edge${selected ? " selected-edge" : ""}${matches ? " search-edge" : ""}${dimmed ? " dimmed-edge" : ""}`,
+      className: `${edge.type}-edge${selected ? " selected-edge" : ""}${highlighted ? " simulation-edge" : ""}${matches ? " search-edge" : ""}${dimmed ? " dimmed-edge" : ""}`,
       data: { ...edge, selected: Boolean(selected), matches, dimmed, offset, layout },
       style: {
         strokeWidth: selected ? 3 : 2,
@@ -157,8 +170,12 @@ function buildServerGroupedElements(
   lowerQuery: string,
   queryActive: boolean,
   selectedId?: string,
-  layout: LayoutDirection = "horizontal"
+  layout: LayoutDirection = "horizontal",
+  highlight: FlowHighlight = {}
 ) {
+  const highlightedNodeIds = new Set(highlight.nodeIds || []);
+  const highlightedEdgeIds = new Set(highlight.edgeIds || []);
+  const highlightActive = Boolean(highlight.active) || highlightedNodeIds.size > 0 || highlightedEdgeIds.size > 0;
   const serverNodes = graph.nodes.filter((node) => node.type === "server");
   if (serverNodes.length === 0) return null;
 
@@ -292,9 +309,11 @@ function buildServerGroupedElements(
     laneLayoutNodes.forEach(({ node, x, y }) => {
       const layoutId = `${lane.server.id}::${node.id}`;
       const matches = matchedNodeIds.has(node.id);
-      const related = selectedId ? connectedLayoutIds.has(layoutId) : false;
+      const highlighted = highlightedNodeIds.has(node.id);
+      const related = highlighted || (selectedId ? connectedLayoutIds.has(layoutId) : false);
       const dimmedBySelection = Boolean(selectedId && !related && selectedId !== node.id);
       const dimmedByQuery = queryActive && !matches;
+      const dimmedByHighlight = highlightActive && !highlighted && !related;
 
       flowNodes.push({
         id: layoutId,
@@ -309,7 +328,7 @@ function buildServerGroupedElements(
           layout,
           matches,
           related,
-          dimmed: dimmedBySelection || dimmedByQuery
+          dimmed: dimmedBySelection || dimmedByQuery || dimmedByHighlight
         }
       });
     });
@@ -317,13 +336,14 @@ function buildServerGroupedElements(
     graph.edges.forEach((edge) => {
       if (!lane.edgeIds.has(edge.id) || !lane.nodeIds.has(edge.source) || !lane.nodeIds.has(edge.target)) return;
 
-      const selected = Boolean(selectedId && (edge.source === selectedId || edge.target === selectedId));
+      const highlighted = highlightedEdgeIds.has(edge.id);
+      const selected = highlighted || Boolean(selectedId && (edge.source === selectedId || edge.target === selectedId));
       const matches = queryActive && (
         Boolean(edge.label?.toLowerCase().includes(lowerQuery))
         || matchedNodeIds.has(edge.source)
         || matchedNodeIds.has(edge.target)
       );
-      const dimmed = Boolean((selectedId && !selected) || (queryActive && !matches));
+      const dimmed = Boolean((selectedId && !selected) || (queryActive && !matches) || (highlightActive && !highlighted));
 
       flowEdges.push({
         id: `${lane.server.id}::${edge.id}`,
@@ -334,7 +354,7 @@ function buildServerGroupedElements(
         animated: false,
         label: edge.label,
         type: "flowEdge",
-        className: `${edge.type}-edge${selected ? " selected-edge" : ""}${matches ? " search-edge" : ""}${dimmed ? " dimmed-edge" : ""}`,
+        className: `${edge.type}-edge${selected ? " selected-edge" : ""}${highlighted ? " simulation-edge" : ""}${matches ? " search-edge" : ""}${dimmed ? " dimmed-edge" : ""}`,
         data: { ...edge, selected, matches, dimmed, offset: 0, layout },
         style: {
           strokeWidth: selected ? 3 : 2,

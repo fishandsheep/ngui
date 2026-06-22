@@ -110,4 +110,30 @@ describe("topology model", () => {
     expect(graph.issues.some((issue) => issue.source === "check" && issue.messageKey === "server.missingListen")).toBe(true);
     expect(graph.issues.some((issue) => issue.source === "check" && issue.messageKey === "pass.undefinedUpstream")).toBe(true);
   });
+
+  it("emits warnings for TLS, duplicate server_name, and duplicate upstream backends", () => {
+    const graph = buildTopology(`
+      http {
+        upstream app {
+          server 127.0.0.1:8080;
+          server 127.0.0.1:8080 weight=2;
+        }
+        server { listen 443; server_name example.com; location / { proxy_pass http://app/api; } }
+        server { listen 443; server_name example.com; }
+        server { listen 8443 ssl; server_name secure.example.com; }
+      }
+    `);
+
+    expect(graph.issues.some((issue) => issue.messageKey === "server.listen443WithoutSsl")).toBe(true);
+    expect(graph.issues.some((issue) => issue.messageKey === "server.sslMissingCertificate")).toBe(true);
+    expect(graph.issues.some((issue) => issue.messageKey === "server.duplicateServerName")).toBe(true);
+    expect(graph.issues.some((issue) => issue.messageKey === "upstream.duplicateBackend")).toBe(true);
+    expect(graph.issues.some((issue) => issue.messageKey === "location.proxyPassUriWithPrefix")).toBe(true);
+  });
+
+  it("adds routing metadata and location match details to route nodes", () => {
+    const graph = buildTopology("http { server { listen 80; server_name example.com; location = /health { return 200; } location /api { proxy_pass http://app; } } }");
+    expect(graph.routing?.servers[0].locations.map((location) => location.kind)).toEqual(["exact", "prefix"]);
+    expect(graph.nodes.some((node) => node.type === "route" && node.match?.kind === "exact" && node.details[0].includes("Location match"))).toBe(true);
+  });
 });

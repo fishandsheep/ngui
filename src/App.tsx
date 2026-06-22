@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import ReactFlow, { Background, ControlButton, Controls, MiniMap, Panel, ReactFlowProvider, useReactFlow, applyNodeChanges, type Edge, type Node, type OnNodesChange } from "reactflow";
 import "reactflow/dist/style.css";
-import { Download, FileJson, Github, Languages, Maximize, Maximize2, Minimize, Moon, PanelLeftClose, PanelLeftOpen, RefreshCcw, RefreshCw, Search, Sun, Upload } from "lucide-react";
+import { Download, FileJson, Github, Languages, Maximize, Maximize2, Minimize, Moon, PanelLeftClose, PanelLeftOpen, Pause, Play, RefreshCcw, RefreshCw, Search, Sun, Upload } from "lucide-react";
 import { toPng } from "html-to-image";
-import { buildTopology, type ConfigIssue, type IssueSeverity, type TopologyEdge, type TopologyGraph, type TopologyNode } from "./parser";
+import { buildTopology, simulateRequest, type ConfigIssue, type IssueSeverity, type RequestSimulationInput, type RequestSimulationResult, type TopologyEdge, type TopologyGraph, type TopologyNode } from "./parser";
 import { sampleConfig } from "./sampleConfig";
 import { NginxNode } from "./components/NginxNode";
 import { LaneGroup } from "./components/LaneGroup";
@@ -53,6 +53,17 @@ const copy = {
     focusWorkspace: "Fullscreen topology workspace",
     clearSelection: "Clear topology selection",
     updating: "Updating topology...",
+    simulator: "Request route simulation",
+    host: "Host",
+    hostPlaceholder: "server_name, e.g. example.com",
+    path: "Path",
+    scheme: "Scheme",
+    port: "Port",
+    simulate: "Live simulation",
+    simulationOn: "Live simulation on",
+    simulationOff: "Live simulation off",
+    simulationConfidence: "Static confidence",
+    simulationEmpty: "Turn on live simulation to preview the likely Nginx route.",
     details: "Topology details",
     detailsEmpty: "Select a node or edge to inspect source directives, line numbers, and connected flow.",
     line: "Line",
@@ -95,6 +106,17 @@ const copy = {
     focusWorkspace: "拓扑工作区全屏",
     clearSelection: "清除拓扑选择",
     updating: "正在更新拓扑...",
+    simulator: "请求路由模拟",
+    host: "主机",
+    hostPlaceholder: "server_name，例如 example.com",
+    path: "路径",
+    scheme: "协议",
+    port: "端口",
+    simulate: "实时模拟",
+    simulationOn: "实时模拟已开启",
+    simulationOff: "实时模拟已关闭",
+    simulationConfidence: "静态置信度",
+    simulationEmpty: "开启实时模拟后，预览可能命中的 Nginx 路由。",
     details: "拓扑详情",
     detailsEmpty: "选择节点或连线，查看来源指令、行号和关联流向。",
     line: "第",
@@ -121,7 +143,13 @@ const issueMessages = {
     "pass.undefinedUpstream": "{directive} references undefined upstream \"{name}\".",
     "server.containsIf": "Server block contains an if block.",
     "location.containsIf": "Location block contains an if block.",
-    "location.missingTerminalRoute": "Location \"{path}\" has no recognized terminal routing directive."
+    "location.missingTerminalRoute": "Location \"{path}\" has no recognized terminal routing directive.",
+    "server.listen443WithoutSsl": "Listen directive uses port 443 without the ssl flag: {value}.",
+    "server.sslMissingCertificate": "SSL-enabled server has no ssl_certificate directive.",
+    "server.duplicateServerName": "Duplicate server_name on the same listen scope: {name}.",
+    "upstream.duplicateBackend": "Upstream \"{name}\" repeats backend \"{target}\".",
+    "location.proxyPassUriWithPrefix": "Prefix location \"{path}\" proxies to a URI target \"{target}\".",
+    "location.duplicate": "Duplicate location declaration: {path}."
   },
   zh: {
     "server.missingListen": "server 块缺少显式 listen 指令。",
@@ -132,7 +160,13 @@ const issueMessages = {
     "pass.undefinedUpstream": "{directive} 指向未定义的 upstream “{name}”。",
     "server.containsIf": "server 块中包含 if 块。",
     "location.containsIf": "location 块中包含 if 块。",
-    "location.missingTerminalRoute": "location “{path}” 没有识别到终结路由指令。"
+    "location.missingTerminalRoute": "location “{path}” 没有识别到终结路由指令。",
+    "server.listen443WithoutSsl": "listen 指令使用 443 端口但缺少 ssl 标记：{value}。",
+    "server.sslMissingCertificate": "启用 SSL 的 server 缺少 ssl_certificate 指令。",
+    "server.duplicateServerName": "同一 listen 范围内重复 server_name：{name}。",
+    "upstream.duplicateBackend": "upstream “{name}” 重复后端 “{target}”。",
+    "location.proxyPassUriWithPrefix": "前缀 location “{path}” 转发到带 URI 的目标 “{target}”。",
+    "location.duplicate": "重复的 location 声明：{path}。"
   }
 } as const;
 
@@ -146,7 +180,13 @@ const issueSuggestions = {
     "pass.defineUpstream": "Define the upstream first, or point the pass directive to a direct host.",
     "server.reviewIf": "Review whether the if block can be replaced with return, map, or location routing.",
     "location.reviewIf": "Review whether the if block can be replaced with return, map, or location routing.",
-    "location.addTerminalRoute": "Add proxy_pass, return, try_files, or another terminal pass directive."
+    "location.addTerminalRoute": "Add proxy_pass, return, try_files, or another terminal pass directive.",
+    "server.addSslFlag": "Add ssl to the listen directive, or move this server to a non-443 port.",
+    "server.addSslCertificate": "Add ssl_certificate and ssl_certificate_key for this TLS server.",
+    "server.deduplicateServerName": "Keep one server block per server_name and listen combination.",
+    "upstream.deduplicateBackend": "Remove the duplicate backend or make the balancing intent explicit.",
+    "location.reviewProxyPassUri": "Review Nginx URI replacement behavior for prefix locations.",
+    "location.mergeDuplicate": "Merge the duplicated location blocks or make their match rules distinct."
   },
   zh: {
     "server.addListen": "补充显式 listen 指令，避免入口语义不明确。",
@@ -157,7 +197,13 @@ const issueSuggestions = {
     "pass.defineUpstream": "先定义 upstream，或把 pass 目标改成直接主机地址。",
     "server.reviewIf": "评估是否能用 return、map 或 location 路由替代 if。",
     "location.reviewIf": "评估是否能用 return、map 或 location 路由替代 if。",
-    "location.addTerminalRoute": "补充 proxy_pass、return、try_files 或其他终结路由指令。"
+    "location.addTerminalRoute": "补充 proxy_pass、return、try_files 或其他终结路由指令。",
+    "server.addSslFlag": "补充 listen ssl 标记，或把该 server 移到非 443 端口。",
+    "server.addSslCertificate": "为该 TLS server 补充 ssl_certificate 和 ssl_certificate_key。",
+    "server.deduplicateServerName": "同一 server_name 和 listen 组合通常只保留一个 server 块。",
+    "upstream.deduplicateBackend": "移除重复后端，或显式说明负载均衡意图。",
+    "location.reviewProxyPassUri": "检查前缀 location 下 Nginx URI 替换行为是否符合预期。",
+    "location.mergeDuplicate": "合并重复 location，或让匹配规则明确不同。"
   }
 } as const;
 
@@ -175,6 +221,14 @@ function Workspace() {
   const [exportingPng, setExportingPng] = useState(false);
   const [leftPanelWidth, setLeftPanelWidth] = useState(340);
   const [canvasFocused, setCanvasFocused] = useState(false);
+  const [simulationInput, setSimulationInput] = useState<RequestSimulationInput>({
+    host: "example.com",
+    path: "/api/users",
+    scheme: "http",
+    port: 80
+  });
+  const [simulationPort, setSimulationPort] = useState("80");
+  const [simulationEnabled, setSimulationEnabled] = useState(false);
   const flowRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<CodeEditorHandle>(null);
   const resizeStartRef = useRef<{ x: number; width: number } | null>(null);
@@ -185,7 +239,16 @@ function Workspace() {
   const topologyQuery = useDebouncedValue(query, 120);
   const topologyUpdating = parsedConfig !== config || topologyQuery !== query;
   const graph = useMemo<TopologyGraph>(() => buildTopology(parsedConfig), [parsedConfig]);
-  const elements = useMemo(() => toFlowElements(graph, topologyQuery, selectedId, layout), [graph, topologyQuery, selectedId, layout]);
+  const simulation = useMemo<RequestSimulationResult>(
+    () => simulationEnabled
+      ? simulateRequest(graph.routing, graph.edges, simulationInput)
+      : inactiveSimulation(text.simulationEmpty),
+    [graph, simulationEnabled, simulationInput, text.simulationEmpty]
+  );
+  const elements = useMemo(
+    () => toFlowElements(graph, topologyQuery, selectedId, layout, { nodeIds: simulation.nodeIds, edgeIds: simulation.edgeIds, active: simulationEnabled }),
+    [graph, topologyQuery, selectedId, layout, simulation, simulationEnabled]
+  );
   const [flowNodes, setFlowNodes] = useState<Node[]>([]);
   const onNodesChange: OnNodesChange = useCallback((changes) => {
     setFlowNodes(nds => applyNodeChanges(changes, nds));
@@ -511,6 +574,83 @@ function Workspace() {
               <RefreshCw size={16} />
             </ControlButton>
           </Controls>
+          <Panel position="top-left" className="request-simulator" aria-label={text.simulator}>
+            <div className="simulator-title">
+              <span>{text.simulator}</span>
+            </div>
+            <label>
+              <span>{text.host}</span>
+              <input
+                value={simulationInput.host}
+                aria-label={text.host}
+                placeholder={text.hostPlaceholder}
+                title={text.hostPlaceholder}
+                onChange={(event) => setSimulationInput((value) => ({ ...value, host: event.target.value.trim() }))}
+              />
+            </label>
+            <label>
+              <span>{text.path}</span>
+              <input
+                value={simulationInput.path}
+                aria-label={text.path}
+                onChange={(event) => setSimulationInput((value) => ({ ...value, path: event.target.value }))}
+              />
+            </label>
+            <label>
+              <span>{text.scheme}</span>
+              <select
+                value={simulationInput.scheme}
+                aria-label={text.scheme}
+                onChange={(event) => {
+                  const scheme = event.target.value as RequestSimulationInput["scheme"];
+                  setSimulationPort((port) => {
+                    if (scheme === "https" && port === "80") return "443";
+                    if (scheme === "http" && port === "443") return "80";
+                    return port;
+                  });
+                  setSimulationInput((value) => ({
+                    ...value,
+                    scheme,
+                    port: scheme === "https" && value.port === 80 ? 443 : scheme === "http" && value.port === 443 ? 80 : value.port
+                  }));
+                }}
+              >
+                <option value="http">http</option>
+                <option value="https">https</option>
+              </select>
+            </label>
+            <label className="simulator-port">
+              <span>{text.port}</span>
+              <input
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={simulationPort}
+                aria-label={text.port}
+                onChange={(event) => {
+                  const { displayValue, port } = parsePortInput(event.target.value);
+                  setSimulationPort(displayValue);
+                  setSimulationInput((value) => ({ ...value, port }));
+                }}
+              />
+            </label>
+            <button
+              type="button"
+              aria-label={text.simulate}
+              title={text.simulate}
+              aria-pressed={simulationEnabled}
+              className="simulator-live-toggle"
+              onClick={() => {
+                setSimulationEnabled((enabled) => {
+                  const next = !enabled;
+                  setStatusMessage(next ? text.simulationOn : text.simulationOff);
+                  return next;
+                });
+              }}
+            >
+              {simulationEnabled ? <Pause size={14} /> : <Play size={14} />}
+              <span className="sr-only">{simulationEnabled ? text.simulationOn : text.simulationOff}</span>
+            </button>
+          </Panel>
           <Panel position="top-right" className="canvas-actions">
             <button
               aria-label={canvasFocused ? text.showPanels : text.focusWorkspace}
@@ -529,7 +669,7 @@ function Workspace() {
       </main>
 
       <aside className="right-panel" aria-label={text.details} aria-live="polite">
-        <DetailPanel selected={selected} graph={graph} language={language} />
+        <DetailPanel selected={selected} graph={graph} language={language} simulation={simulation} />
       </aside>
 
       <div className="sr-only" role="status" aria-live="polite">{statusMessage}</div>
@@ -651,13 +791,14 @@ function IssuePanelShell({
   );
 }
 
-function DetailPanel({ selected, graph, language }: { selected: TopologyNode | TopologyEdge | null; graph: TopologyGraph; language: Language }) {
+function DetailPanel({ selected, graph, language, simulation }: { selected: TopologyNode | TopologyEdge | null; graph: TopologyGraph; language: Language; simulation: RequestSimulationResult }) {
   const text = copy[language];
   if (!selected) {
     return (
       <div className="empty-detail">
         <h2>{text.details}</h2>
         <p>{text.detailsEmpty}</p>
+        <SimulationSummary simulation={simulation} language={language} />
       </div>
     );
   }
@@ -669,6 +810,7 @@ function DetailPanel({ selected, graph, language }: { selected: TopologyNode | T
     <div className="detail-content">
       <span className="detail-kind">{selected.type}</span>
       <h2>{isNode ? selected.label : selected.label || text.flowEdge}</h2>
+      <SimulationSummary simulation={simulation} language={language} compact />
       {isNode && selected.subtitle ? <p className="subtitle">{translateExplanation(selected.subtitle, language)}</p> : null}
       {isNode && selected.source ? <p className="line">{formatLocation(selected.source.line, selected.source.file, language)}</p> : null}
       {isNode && selected.confidence ? <p className="confidence-note">{text.confidence}: {text.confidenceValue[selected.confidence]}</p> : null}
@@ -692,6 +834,25 @@ function DetailPanel({ selected, graph, language }: { selected: TopologyNode | T
         </>
       ) : null}
     </div>
+  );
+}
+
+function SimulationSummary({ simulation, language, compact = false }: { simulation: RequestSimulationResult; language: Language; compact?: boolean }) {
+  const text = copy[language];
+  return (
+    <section className={`simulation-summary ${compact ? "compact" : ""}`} aria-label={text.simulator}>
+      <div className="simulation-summary__top">
+        <strong>{translateSimulation(simulation.summary, language)}</strong>
+        <span>{text.simulationConfidence}: {text.confidenceValue[simulation.confidence]}</span>
+      </div>
+      {!compact ? (
+        <ul>
+          {simulation.reasons.map((reason) => (
+            <li key={reason}>{translateSimulation(reason, language)}</li>
+          ))}
+        </ul>
+      ) : null}
+    </section>
   );
 }
 
@@ -729,6 +890,7 @@ function translateExplanation(value: string, language: Language) {
   if (value === "upstream group") return "upstream 组";
   if (value === "dynamic target") return "动态目标";
   if (value === "route") return "路由";
+  if (value.startsWith("Location match: ")) return `匹配规则：${translateLocationKind(value.slice(16))}`;
   if (value.startsWith("Entry point declared by ")) return `入口由 ${value.slice(24)} 声明`;
   if (value.startsWith("Dynamic expression: ")) return `动态表达式：${value.slice(20)}`;
   if (value.startsWith("Target declared by ")) return `目标由 ${value.slice(19)} 声明`;
@@ -741,10 +903,57 @@ function isLocalizedExplanation(value: string) {
     || value === "upstream group"
     || value === "dynamic target"
     || value === "route"
+    || value.startsWith("Location match: ")
     || value.startsWith("Entry point declared by ")
     || value.startsWith("Dynamic expression: ")
     || value.startsWith("Target declared by ")
     || value.startsWith("map from ");
+}
+
+function translateSimulation(value: string, language: Language) {
+  if (language === "en") return value;
+  return value
+    .replace(/^Turn on live simulation to preview the likely Nginx route\.$/, "开启实时模拟后，预览可能命中的 Nginx 路由。")
+    .replace(/^Enter a port to simulate the request route\.$/, "输入端口后才能模拟请求路由。")
+    .replace(/^No HTTP server matched (.+)\.$/, "没有 HTTP server 匹配 $1。")
+    .replace(/^Matched server (.+), but no location matched (.+)\.$/, "已匹配 server $1，但没有 location 匹配 $2。")
+    .replace(/^(.+) matched location (.+) in (.+)\.$/, "$1 命中 $3 中的 location $2。")
+    .replace(/^Listen matched port (\d+)\.$/, "listen 匹配端口 $1。")
+    .replace(/^Server name matched (.+)\.$/, "server_name 匹配 $1。")
+    .replace(/^Server has no explicit server_name\.$/, "server 没有显式 server_name。")
+    .replace(/^No matching location block found\.$/, "没有找到匹配的 location 块。")
+    .replace(/^Fallback\/default server matched\.$/, "命中 fallback/default server。")
+    .replace(/^Location matched by (.+): (.+)\.$/, (_, kind, pattern) => `location 通过 ${translateLocationKind(kind)} 匹配：${pattern}。`)
+    .replace(/^Dynamic variable target lowers confidence\.$/, "动态变量目标降低置信度。")
+    .replace(/^Static route target resolved\.$/, "静态路由目标已解析。")
+    .replace(/^Routing model unavailable\.$/, "路由模型不可用。");
+}
+
+function translateLocationKind(value: string) {
+  return value
+    .replace("exact", "精确")
+    .replace("prefix-priority", "优先前缀")
+    .replace("regex-case-sensitive", "区分大小写正则")
+    .replace("regex-case-insensitive", "不区分大小写正则")
+    .replace("prefix", "普通前缀");
+}
+
+function parsePortInput(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return { displayValue: "", port: undefined };
+  const port = Math.min(65535, Math.max(1, Number(digits)));
+  return { displayValue: String(port), port };
+}
+
+function inactiveSimulation(summary: string): RequestSimulationResult {
+  return {
+    status: "no-server",
+    confidence: "low",
+    nodeIds: [],
+    edgeIds: [],
+    summary,
+    reasons: [summary]
+  };
 }
 
 function translateParseMessage(message: string) {

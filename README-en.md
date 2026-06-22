@@ -31,6 +31,8 @@ Nginx UI Topology is a local-first web tool for visualizing nginx routing behavi
 - Animated data-flow edges with selection highlighting and unrelated-node dimming.
 - Drag nodes to rearrange the topology with smooth lerp-based following.
 - Configuration analysis that detects common issues and misconfigurations.
+- Request route simulation: enter host, path, scheme, and port, then enable live simulation to statically preview the likely server, location, and backend path.
+- Location precedence display for exact, priority-prefix, regex, and normal-prefix matches.
 - Details panel for selected nodes and edges, including source directives and line information.
 - Export topology as PNG or JSON.
 - Bilingual interface: English and Chinese.
@@ -49,9 +51,13 @@ The built-in analyzer inspects the parsed AST and reports issues in real time. I
 | Warning | Duplicate `listen` | Two `listen` directives in the same `server` share the same address and port. |
 | Warning | Undefined upstream | A `proxy_pass` (or `fastcgi_pass`, `grpc_pass`, etc.) references an upstream name that is never defined. |
 | Warning | Duplicate upstream name | Multiple `upstream` blocks share the same name. |
+| Warning | Duplicate backend | The same backend target is repeated inside one `upstream`. |
+| Warning | Incomplete TLS configuration | For example, `listen 443` without `ssl`, or an SSL-enabled server without `ssl_certificate`. |
+| Warning | Duplicate `server_name` | The same `server_name` appears more than once in the same listen scope. |
 | Info | Missing `server_name` | An HTTP `server` block has no `server_name` directive. |
 | Info | `if` directive usage | A `server` or `location` block contains an `if` directive, which is a known source of unexpected behavior. |
 | Info | No terminal route | A `location` block has no `proxy_pass`, `return`, `try_files`, or similar directive that determines the response. |
+| Info | `proxy_pass` URI risk | A prefix `location` proxies to a `proxy_pass` target with a URI, prompting review of nginx URI replacement behavior. |
 
 ## Quick Start
 
@@ -72,10 +78,11 @@ http://localhost:5173/
 2. Upload the generated output or paste it into the left configuration editor.
 3. Review configuration issues in the issues panel. Click an issue to jump to the source line.
 4. Use search to find server names, upstreams, backends, or directives.
-5. Click nodes or edges to inspect details.
-6. Drag nodes to rearrange the topology layout.
-7. Use **Rotate layout** to switch between left-to-right and top-to-bottom topology layouts.
-8. Export the result as PNG or JSON when needed.
+5. Use request route simulation to enter host, path, scheme, and port, then enable live simulation to inspect the statically inferred route.
+6. Click nodes or edges to inspect details.
+7. Drag nodes to rearrange the topology layout.
+8. Use **Rotate layout** to switch between left-to-right and top-to-bottom topology layouts.
+9. Export the result as PNG or JSON when needed.
 
 ## Supported Nginx Concepts
 

@@ -44,6 +44,19 @@ export interface ConfigIssue {
   source: "parse" | "check";
 }
 
+export type LocationMatchKind =
+  | "exact"
+  | "prefix-priority"
+  | "regex-case-sensitive"
+  | "regex-case-insensitive"
+  | "prefix";
+
+export interface LocationMatchInfo {
+  kind: LocationMatchKind;
+  pattern: string;
+  priority: number;
+}
+
 export interface ParseResult {
   ast: NginxBlock;
   errors: ParseError[];
@@ -65,6 +78,7 @@ export interface TopologyNode {
   source?: SourceLocation;
   raw?: string;
   confidence?: "high" | "medium" | "low";
+  match?: LocationMatchInfo;
   details: string[];
 }
 
@@ -83,4 +97,52 @@ export interface TopologyGraph {
   nodes: TopologyNode[];
   edges: TopologyEdge[];
   issues: ConfigIssue[];
+  routing?: RoutingModel;
+}
+
+export interface RoutingListen {
+  value: string;
+  port?: number;
+  ssl: boolean;
+  nodeId?: string;
+}
+
+export interface RoutingLocation extends LocationMatchInfo {
+  id: string;
+  nodeId: string;
+  serverNodeId: string;
+  order: number;
+  source?: SourceLocation;
+  raw?: string;
+}
+
+export interface RoutingServer {
+  id: string;
+  nodeId: string;
+  context: "http" | "stream";
+  names: string[];
+  listens: RoutingListen[];
+  locations: RoutingLocation[];
+}
+
+export interface RoutingModel {
+  servers: RoutingServer[];
+}
+
+export interface RequestSimulationInput {
+  host: string;
+  path: string;
+  scheme: "http" | "https";
+  port?: number;
+}
+
+export interface RequestSimulationResult {
+  status: "matched" | "no-server" | "no-location";
+  confidence: "high" | "medium" | "low";
+  nodeIds: string[];
+  edgeIds: string[];
+  summary: string;
+  reasons: string[];
+  serverId?: string;
+  locationId?: string;
 }

@@ -28,6 +28,9 @@ describe("App accessibility and interaction states", () => {
 
     expect(screen.getByRole("textbox", { name: "Nginx 配置" })).toBeInTheDocument();
     expect(screen.getByRole("searchbox", { name: "搜索拓扑" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "主机" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "路径" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "端口" })).toBeInTheDocument();
     expect(screen.getByLabelText("上传 Nginx 配置")).toHaveAttribute("type", "file");
     expect(screen.getByRole("button", { name: "导出拓扑 JSON" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "拓扑工作区全屏" })).toBeInTheDocument();
@@ -211,5 +214,35 @@ describe("App accessibility and interaction states", () => {
 
     expect(document.querySelector('.code-line-active[data-line="5"]')).toBeInTheDocument();
     expect(document.querySelector('.code-gutter-line-active[data-line="5"]')).toBeInTheDocument();
+  });
+
+  it("updates the request route simulation after live mode is enabled", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    expect(screen.getAllByText("开启实时模拟后，预览可能命中的 Nginx 路由。").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "实时模拟" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "路径" }), { target: { value: "/grpc" } });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(screen.getByText(/example.com\/grpc 命中/)).toBeInTheDocument();
+    expect(screen.getByText("静态置信度: 高")).toBeInTheDocument();
+  });
+
+  it("allows clearing the request route simulation port", () => {
+    vi.useFakeTimers();
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "实时模拟" }));
+    const port = screen.getByRole("textbox", { name: "端口" }) as HTMLInputElement;
+    fireEvent.change(port, { target: { value: "" } });
+    act(() => {
+      vi.advanceTimersByTime(200);
+    });
+
+    expect(port.value).toBe("");
+    expect(screen.getAllByText("输入端口后才能模拟请求路由。").length).toBeGreaterThan(0);
   });
 });

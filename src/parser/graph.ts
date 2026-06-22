@@ -1,5 +1,6 @@
 import { analyzeNginxConfig } from "./analyzer";
 import { isBlock, parseNginxConfig } from "./parser";
+import { buildRoutingModel, classifyLocation } from "./routing";
 import type { ConfigIssue, NginxBlock, NginxDirective, NginxNode, ParseError, TopologyEdge, TopologyGraph, TopologyNode } from "./types";
 
 const passDirectives = new Set(["proxy_pass", "fastcgi_pass", "grpc_pass", "uwsgi_pass", "scgi_pass", "memcached_pass"]);
@@ -13,6 +14,7 @@ export function buildTopologyFromAst(ast: NginxBlock, errors: ParseError[] = [])
   const nodes = new Map<string, TopologyNode>();
   const edges = new Map<string, TopologyEdge>();
   const issues = [...errors.map(parseErrorToIssue), ...analyzeNginxConfig(ast)];
+  const routing = buildRoutingModel(ast);
   const upstreams = collectUpstreams(ast, nodes, edges);
   const maps = collectMaps(ast, nodes);
 
@@ -58,14 +60,16 @@ export function buildTopologyFromAst(ast: NginxBlock, errors: ParseError[] = [])
     const inlineRoutes = node.children.filter((child) => !isBlock(child) && routeDirective(child));
     inlineRoutes.forEach((route) => connectRoute(route, serverId, upstreams, maps, nodes, edges));
     locationBlocks.forEach((location) => {
+      const match = classifyLocation(location);
       const routeId = upsert(nodes, {
         id: `route-${location.id}`,
         type: "route",
         label: `location ${location.args.join(" ") || "/"}`,
-        subtitle: summarizeDirectives(location.children),
+        subtitle: `${match.kind} ${match.pattern} | ${summarizeDirectives(location.children)}`,
         source: location.loc,
         raw: location.raw,
-        details: collectDetails(location)
+        match,
+        details: [`Location match: ${match.kind} ${match.pattern}`, ...collectDetails(location)]
       });
       addEdge(edges, serverId, routeId, "flow", "matches");
       connectPasses(location, routeId, upstreams, maps, nodes, edges);
@@ -75,7 +79,7 @@ export function buildTopologyFromAst(ast: NginxBlock, errors: ParseError[] = [])
     });
   });
 
-  return { nodes: [...nodes.values()], edges: [...edges.values()], issues };
+  return { nodes: [...nodes.values()], edges: [...edges.values()], issues, routing };
 }
 
 function collectUpstreams(ast: NginxBlock, nodes: Map<string, TopologyNode>, edges: Map<string, TopologyEdge>) {
