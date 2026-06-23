@@ -497,33 +497,33 @@ function Workspace() {
                 initialHeight={304}
                 minHeight={132}
                 maxHeight={460}
-                background="linear-gradient(180deg, color-mix(in srgb, var(--panel) 82%, var(--accent-2) 18%), color-mix(in srgb, var(--panel-2) 94%, var(--warn) 6%))"
-                border="1px solid color-mix(in srgb, var(--warn) 55%, var(--line))"
+                background="var(--panel)"
+                border="1px solid var(--line)"
                 header={(
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, padding: "10px 10px 8px", borderBottom: "1px solid var(--line)" }}>
+                  <div className="issues-header">
                     <strong style={{ color: "var(--text)", fontSize: 12 }}>{text.issues.toUpperCase()}</strong>
                     <span style={{ color: "var(--muted)", fontSize: 11 }}>{graph.issues.length}</span>
                   </div>
                 )}
                 helperText={text.dragEdge}
-                handleStyle={{ background: "linear-gradient(180deg, transparent, color-mix(in srgb, var(--warn) 38%, var(--accent-2) 62%), transparent)" }}
+                handleStyle={{ background: "var(--panel)" }}
               >
-                <div style={{ padding: "8px 10px 10px", display: "grid", gap: 8 }}>
-                  <div style={{ color: "var(--muted)", fontSize: 11 }}>{text.issuePanelHint} {text.jumpToLine}</div>
+                <div className="issues-list">
+                  <div className="issues-hint">{text.issuePanelHint} {text.jumpToLine}</div>
                   {visibleIssues.map((issue) => (
                     <button
                       key={issue.id}
                       type="button"
-                      className="issue-item"
+                      className={`issue-item issue-item--${issue.severity}`}
                       onClick={() => focusIssueLine(issue.loc.line)}
                       onKeyDown={(event) => onIssueKeyDown(event, issue.loc.line)}
                       title={language === "zh" ? `定位到第 ${issue.loc.line} 行` : `Jump to line ${issue.loc.line}`}
                     >
-                      <span className="issue-item__message" style={{ display: "block", fontSize: 13, lineHeight: 1.4, color: "var(--warn)" }}>
+                      <span className="issue-item__message">
                         <strong>[{translateSeverity(issue.severity, language)}]</strong> L{issue.loc.line}: {translateIssue(issue, language)}
                       </span>
                       {issue.suggestionKey ? (
-                        <span className="issue-item__suggestion" style={{ display: "block", color: "var(--warn)", fontSize: 12, lineHeight: 1.4, marginTop: 3, opacity: 0.88 }}>
+                        <span className="issue-item__suggestion">
                           {translateIssueSuggestion(issue, language)}
                         </span>
                       ) : null}
@@ -769,7 +769,7 @@ function IssuePanelShell({
             top: 7,
             height: 3,
             borderRadius: 999,
-            background: "color-mix(in srgb, var(--warn) 34%, var(--line))"
+            background: "color-mix(in srgb, var(--accent-2) 28%, var(--line))"
           }}
         />
         {helperText ? (
