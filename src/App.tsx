@@ -32,6 +32,10 @@ const copy = {
     darkTheme: "Switch to dark theme",
     exportJson: "Export topology as JSON",
     exportPng: "Export topology as PNG",
+    exportJsonShort: "JSON",
+    exportPngShort: "PNG",
+    lightThemeShort: "Light",
+    darkThemeShort: "Dark",
     enterFullscreen: "Enter fullscreen",
     exitFullscreen: "Exit fullscreen",
     fullscreen: "Fullscreen",
@@ -40,7 +44,9 @@ const copy = {
     collapseConfig: "Collapse config panel",
     uploadOutput: "Upload nginx -T output",
     uploadConfig: "Upload nginx configuration",
+    uploadShort: "Upload",
     loadSample: "Load sample configuration",
+    sampleShort: "Sample",
     search: "Search topology",
     searchPlaceholder: "Search server, upstream, backend...",
     nodes: "nodes",
@@ -62,8 +68,11 @@ const copy = {
     simulate: "Live simulation",
     simulationOn: "Live simulation on",
     simulationOff: "Live simulation off",
+    simulationResult: "Route result",
     simulationConfidence: "Static confidence",
     simulationEmpty: "Turn on live simulation to preview the likely Nginx route.",
+    simulationUnavailable: "Static analysis can miss Lua, njs, and runtime variable behavior.",
+    pathWillNormalize: "Paths without a leading slash are simulated as absolute paths.",
     details: "Topology details",
     detailsEmpty: "Select a node or edge to inspect source directives, line numbers, and connected flow.",
     line: "Line",
@@ -75,6 +84,7 @@ const copy = {
     noConnections: "No connected edges.",
     flowEdge: "flow edge",
     dragEdge: "Drag the lower edge",
+    resizeIssues: "Resize issues panel",
     issuePanelHint: "Review parser errors and advisory checks together.",
     jumpToLine: "Click an issue to jump to its configuration line."
   },
@@ -85,6 +95,10 @@ const copy = {
     darkTheme: "切换到深色主题",
     exportJson: "导出拓扑 JSON",
     exportPng: "导出拓扑 PNG",
+    exportJsonShort: "JSON",
+    exportPngShort: "PNG",
+    lightThemeShort: "浅色",
+    darkThemeShort: "深色",
     enterFullscreen: "进入全屏",
     exitFullscreen: "退出全屏",
     fullscreen: "全屏",
@@ -93,7 +107,9 @@ const copy = {
     collapseConfig: "收起配置面板",
     uploadOutput: "上传 nginx -T 输出",
     uploadConfig: "上传 Nginx 配置",
+    uploadShort: "上传",
     loadSample: "载入示例配置",
+    sampleShort: "示例",
     search: "搜索拓扑",
     searchPlaceholder: "搜索 server、upstream、backend...",
     nodes: "节点",
@@ -115,8 +131,11 @@ const copy = {
     simulate: "实时模拟",
     simulationOn: "实时模拟已开启",
     simulationOff: "实时模拟已关闭",
+    simulationResult: "路由结果",
     simulationConfidence: "静态置信度",
     simulationEmpty: "开启实时模拟后，预览可能命中的 Nginx 路由。",
+    simulationUnavailable: "静态分析可能无法覆盖 Lua、njs 和运行时变量行为。",
+    pathWillNormalize: "未以 / 开头的路径会按绝对路径模拟。",
     details: "拓扑详情",
     detailsEmpty: "选择节点或连线，查看来源指令、行号和关联流向。",
     line: "第",
@@ -128,6 +147,7 @@ const copy = {
     noConnections: "无关联连线。",
     flowEdge: "拓扑连线",
     dragEdge: "拖动下边界调整高度",
+    resizeIssues: "调整问题面板高度",
     issuePanelHint: "统一查看解析错误与配置建议。",
     jumpToLine: "点击问题可快速跳转到对应配置行。"
   }
@@ -275,6 +295,7 @@ function Workspace() {
     () => [...graph.issues].sort(compareIssues).slice(0, 5),
     [graph.issues]
   );
+  const simulationPathHelp = simulationInput.path.trim().startsWith("/") ? "" : text.pathWillNormalize;
 
   useEffect(() => {
     const syncFullscreen = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -322,6 +343,7 @@ function Workspace() {
     }
 
     setExportingPng(true);
+    const restoreSvgEdges = freezeSvgEdgeStyles(viewport);
     try {
       const url = await toPng(viewport, {
         backgroundColor: theme === "dark" ? "#0b1020" : "#f7f8fb",
@@ -335,6 +357,7 @@ function Workspace() {
     } catch {
       setStatusMessage(language === "zh" ? "PNG 导出失败，请调整拓扑视图后重试。" : "PNG export failed. Try fitting the topology and export again.");
     } finally {
+      restoreSvgEdges();
       setExportingPng(false);
     }
   }, [language, theme]);
@@ -420,12 +443,15 @@ function Workspace() {
             onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
           >
             {theme === "dark" ? <Sun size={16} /> : <Moon size={16} />}
+            <span className="menu-action-label">{theme === "dark" ? text.lightThemeShort : text.darkThemeShort}</span>
           </button>
           <button aria-label={text.exportJson} title={text.exportJson} onClick={exportJson}>
             <FileJson size={16} />
+            <span className="menu-action-label">{text.exportJsonShort}</span>
           </button>
           <button aria-label={text.exportPng} title={text.exportPng} disabled={exportingPng} onClick={exportPng}>
             <Download size={16} />
+            <span className="menu-action-label">{text.exportPngShort}</span>
           </button>
           <button
             className="fullscreen-button"
@@ -465,11 +491,13 @@ function Workspace() {
           <div className="panel-tools">
             <label className="icon-upload" title={text.uploadOutput}>
               <Upload size={17} />
+              <span className="tool-label">{text.uploadShort}</span>
               <span className="sr-only">{text.uploadConfig}</span>
-              <input type="file" accept=".conf,.txt,text/plain" onChange={(event) => onFile(event.target.files?.[0])} />
+              <input aria-label={text.uploadConfig} type="file" accept=".conf,.txt,text/plain" onChange={(event) => onFile(event.target.files?.[0])} />
             </label>
-            <button aria-label={text.loadSample} title={text.loadSample} onClick={() => setConfig(sampleConfig)}>
+            <button className="panel-tool-button" aria-label={text.loadSample} title={text.loadSample} onClick={() => setConfig(sampleConfig)}>
               <RefreshCcw size={16} />
+              <span className="tool-label">{text.sampleShort}</span>
             </button>
             <div className="search-box">
               <Search size={16} />
@@ -497,16 +525,14 @@ function Workspace() {
                 initialHeight={304}
                 minHeight={132}
                 maxHeight={460}
-                background="var(--panel)"
-                border="1px solid var(--line)"
                 header={(
                   <div className="issues-header">
-                    <strong style={{ color: "var(--text)", fontSize: 12 }}>{text.issues.toUpperCase()}</strong>
-                    <span style={{ color: "var(--muted)", fontSize: 11 }}>{graph.issues.length}</span>
+                    <strong>{text.issues.toUpperCase()}</strong>
+                    <span>{graph.issues.length}</span>
                   </div>
                 )}
                 helperText={text.dragEdge}
-                handleStyle={{ background: "var(--panel)" }}
+                resizeLabel={text.resizeIssues}
               >
                 <div className="issues-list">
                   <div className="issues-hint">{text.issuePanelHint} {text.jumpToLine}</div>
@@ -593,6 +619,7 @@ function Workspace() {
               <input
                 value={simulationInput.path}
                 aria-label={text.path}
+                aria-describedby={simulationPathHelp ? "simulation-path-help" : undefined}
                 onChange={(event) => setSimulationInput((value) => ({ ...value, path: event.target.value }))}
               />
             </label>
@@ -650,6 +677,12 @@ function Workspace() {
               {simulationEnabled ? <Pause size={14} /> : <Play size={14} />}
               <span className="sr-only">{simulationEnabled ? text.simulationOn : text.simulationOff}</span>
             </button>
+            <SimulationOutcome
+              simulation={simulation}
+              enabled={simulationEnabled}
+              language={language}
+              pathHelp={simulationPathHelp}
+            />
           </Panel>
           <Panel position="top-right" className="canvas-actions">
             <button
@@ -677,28 +710,71 @@ function Workspace() {
   );
 }
 
+function freezeSvgEdgeStyles(root: HTMLElement) {
+  const paths = [...root.querySelectorAll<SVGPathElement>(".react-flow__edge-path")];
+  const snapshots = paths.map((path) => ({
+    path,
+    style: path.getAttribute("style"),
+    fill: path.getAttribute("fill"),
+    stroke: path.getAttribute("stroke"),
+    strokeWidth: path.getAttribute("stroke-width"),
+    strokeDasharray: path.getAttribute("stroke-dasharray"),
+    strokeLinecap: path.getAttribute("stroke-linecap"),
+    strokeLinejoin: path.getAttribute("stroke-linejoin")
+  }));
+
+  paths.forEach((path) => {
+    const computed = window.getComputedStyle(path);
+    path.style.stroke = computed.stroke;
+    path.style.strokeWidth = computed.strokeWidth;
+    path.style.strokeDasharray = computed.strokeDasharray;
+    path.setAttribute("fill", "none");
+    path.setAttribute("stroke", computed.stroke);
+    path.setAttribute("stroke-width", computed.strokeWidth);
+    path.setAttribute("stroke-dasharray", computed.strokeDasharray);
+    path.setAttribute("stroke-linecap", "round");
+    path.setAttribute("stroke-linejoin", "round");
+  });
+
+  return () => {
+    snapshots.forEach((snapshot) => {
+      restoreAttribute(snapshot.path, "style", snapshot.style);
+      restoreAttribute(snapshot.path, "fill", snapshot.fill);
+      restoreAttribute(snapshot.path, "stroke", snapshot.stroke);
+      restoreAttribute(snapshot.path, "stroke-width", snapshot.strokeWidth);
+      restoreAttribute(snapshot.path, "stroke-dasharray", snapshot.strokeDasharray);
+      restoreAttribute(snapshot.path, "stroke-linecap", snapshot.strokeLinecap);
+      restoreAttribute(snapshot.path, "stroke-linejoin", snapshot.strokeLinejoin);
+    });
+  };
+}
+
+function restoreAttribute(element: Element, name: string, value: string | null) {
+  if (value === null) {
+    element.removeAttribute(name);
+    return;
+  }
+  element.setAttribute(name, value);
+}
+
 function IssuePanelShell({
   ariaLabel,
   initialHeight = 304,
   minHeight = 132,
   maxHeight = 460,
-  background,
-  border,
   header,
   helperText,
-  children,
-  handleStyle
+  resizeLabel,
+  children
 }: {
   ariaLabel: string;
   initialHeight?: number;
   minHeight?: number;
   maxHeight?: number;
-  background: string;
-  border: string;
   header?: ReactNode;
   helperText?: ReactNode;
+  resizeLabel: string;
   children: ReactNode;
-  handleStyle?: CSSProperties;
 }) {
   const [height, setHeight] = useState(initialHeight);
   const dragRef = useRef<{ startY: number; startHeight: number } | null>(null);
@@ -720,6 +796,31 @@ function IssuePanelShell({
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   }, []);
+  const resizeBy = useCallback((delta: number) => {
+    setHeight((current) => Math.max(minHeight, Math.min(maxHeight, current + delta)));
+  }, [maxHeight, minHeight]);
+
+  const onKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key === "ArrowUp") {
+      event.preventDefault();
+      resizeBy(-24);
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      resizeBy(24);
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      setHeight(minHeight);
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      setHeight(maxHeight);
+    }
+  }, [maxHeight, minHeight, resizeBy]);
 
   return (
     <div
@@ -728,60 +829,38 @@ function IssuePanelShell({
       aria-live="polite"
       aria-label={ariaLabel}
       style={{
-        display: "grid",
-        gridTemplateRows: header ? "auto minmax(0, 1fr) auto" : "minmax(0, 1fr) auto",
         height,
         minHeight,
-        maxHeight,
-        overflow: "hidden",
-        padding: 0,
-        border,
-        background
+        maxHeight
       }}
     >
       {header}
-      <div style={{ minHeight: 0, overflow: "auto" }}>
+      <div className="issues-scroll">
         {children}
       </div>
       <div
         role="separator"
         aria-orientation="horizontal"
-        title="Resize issues panel"
+        aria-label={resizeLabel}
+        aria-valuemin={minHeight}
+        aria-valuemax={maxHeight}
+        aria-valuenow={height}
+        tabIndex={0}
+        title={resizeLabel}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
-        style={{
-          position: "relative",
-          width: "100%",
-          height: 18,
-          cursor: "ns-resize",
-          touchAction: "none",
-          borderTop: "1px solid var(--line)",
-          ...handleStyle
-        }}
+        onKeyDown={onKeyDown}
+        className="issues-resize-handle"
       >
         <span
           aria-hidden="true"
-          style={{
-            position: "absolute",
-            insetInline: 14,
-            top: 7,
-            height: 3,
-            borderRadius: 999,
-            background: "color-mix(in srgb, var(--accent-2) 28%, var(--line))"
-          }}
+          className="issues-resize-bar"
         />
         {helperText ? (
           <span
-            style={{
-              position: "absolute",
-              right: 10,
-              top: -18,
-              color: "var(--muted)",
-              fontSize: 11,
-              pointerEvents: "none"
-            }}
+            className="issues-resize-helper"
           >
             {helperText}
           </span>
@@ -813,7 +892,11 @@ function DetailPanel({ selected, graph, language, simulation }: { selected: Topo
       <SimulationSummary simulation={simulation} language={language} compact />
       {isNode && selected.subtitle ? <p className="subtitle">{translateExplanation(selected.subtitle, language)}</p> : null}
       {isNode && selected.source ? <p className="line">{formatLocation(selected.source.line, selected.source.file, language)}</p> : null}
-      {isNode && selected.confidence ? <p className="confidence-note">{text.confidence}: {text.confidenceValue[selected.confidence]}</p> : null}
+      {isNode && selected.confidence ? (
+        <p className={`confidence-note confidence-note--${selected.confidence}`}>
+          {text.confidence}: {text.confidenceValue[selected.confidence]}. {confidenceHelp(selected.confidence, language)}
+        </p>
+      ) : null}
       <pre>{isNode ? selected.raw : selected.sourceRaw || selected.label}</pre>
       {isNode ? (
         <>
@@ -837,6 +920,27 @@ function DetailPanel({ selected, graph, language, simulation }: { selected: Topo
   );
 }
 
+function SimulationOutcome({ simulation, enabled, language, pathHelp }: { simulation: RequestSimulationResult; enabled: boolean; language: Language; pathHelp: string }) {
+  const text = copy[language];
+  const confidence = text.confidenceValue[simulation.confidence];
+  const reason = simulation.reasons.find((item) => item !== simulation.summary) || simulation.reasons[0] || "";
+  return (
+    <section className={`simulation-outcome simulation-outcome--${simulation.status} confidence-${simulation.confidence}`} aria-label={text.simulationResult}>
+      <div className="simulation-outcome__label">
+        <span>{enabled ? text.simulationResult : text.simulate}</span>
+        <strong>{text.simulationConfidence}: {confidence}</strong>
+      </div>
+      <p>{translateSimulation(simulation.summary, language)}</p>
+      <div className="simulation-outcome__meta">
+        <span>{translateSimulation(reason, language)}</span>
+        {(simulation.confidence !== "high" || pathHelp) ? (
+          <span id={pathHelp ? "simulation-path-help" : undefined}>{pathHelp || text.simulationUnavailable}</span>
+        ) : null}
+      </div>
+    </section>
+  );
+}
+
 function SimulationSummary({ simulation, language, compact = false }: { simulation: RequestSimulationResult; language: Language; compact?: boolean }) {
   const text = copy[language];
   return (
@@ -845,6 +949,9 @@ function SimulationSummary({ simulation, language, compact = false }: { simulati
         <strong>{translateSimulation(simulation.summary, language)}</strong>
         <span>{text.simulationConfidence}: {text.confidenceValue[simulation.confidence]}</span>
       </div>
+      {simulation.confidence !== "high" ? (
+        <p className="simulation-summary__note">{text.simulationUnavailable}</p>
+      ) : null}
       {!compact ? (
         <ul>
           {simulation.reasons.map((reason) => (
@@ -929,6 +1036,17 @@ function translateSimulation(value: string, language: Language) {
     .replace(/^Routing model unavailable\.$/, "路由模型不可用。");
 }
 
+function confidenceHelp(confidence: "high" | "medium" | "low", language: Language) {
+  if (language === "zh") {
+    if (confidence === "high") return "静态模型已命中明确的 server 和 location。";
+    if (confidence === "medium") return "存在 fallback 或缺少明确 server_name，请复核匹配范围。";
+    return "结果可能受动态变量或运行时逻辑影响，请复核相关指令。";
+  }
+  if (confidence === "high") return "Static model matched an explicit server and location.";
+  if (confidence === "medium") return "Fallback matching or missing server_name affects certainty.";
+  return "Dynamic variables or runtime logic may affect this result.";
+}
+
 function translateLocationKind(value: string) {
   return value
     .replace("exact", "精确")
@@ -965,12 +1083,6 @@ function translateParseMessage(message: string) {
   const block = message.match(/^Unclosed block "(.+)"$/);
   if (block) return `区块“${block[1]}”未闭合`;
   return message;
-}
-
-function issueColor(severity: IssueSeverity) {
-  if (severity === "error") return "var(--danger)";
-  if (severity === "warning") return "var(--warn)";
-  return "var(--text)";
 }
 
 function formatLocation(line: number, file: string | undefined, language: Language) {

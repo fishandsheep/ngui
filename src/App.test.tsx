@@ -32,7 +32,11 @@ describe("App accessibility and interaction states", () => {
     expect(screen.getByRole("textbox", { name: "路径" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "端口" })).toBeInTheDocument();
     expect(screen.getByLabelText("上传 Nginx 配置")).toHaveAttribute("type", "file");
+    expect(screen.getByText("上传")).toBeInTheDocument();
+    expect(screen.getByText("示例")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "导出拓扑 JSON" })).toBeInTheDocument();
+    expect(screen.getByText("JSON")).toBeInTheDocument();
+    expect(screen.getByText("PNG")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "拓扑工作区全屏" })).toBeInTheDocument();
   });
 
@@ -147,6 +151,10 @@ describe("App accessibility and interaction states", () => {
     const issues = screen.getByLabelText("3 个配置问题");
     const issueButtons = issues.querySelectorAll("button.issue-item");
     expect(issueButtons).toHaveLength(3);
+    const resizeHandle = screen.getByRole("separator", { name: "调整问题面板高度" });
+    expect(resizeHandle).toHaveAttribute("aria-valuenow", "304");
+    fireEvent.keyDown(resizeHandle, { key: "ArrowDown", code: "ArrowDown" });
+    expect(resizeHandle).toHaveAttribute("aria-valuenow", "328");
 
     fireEvent.click(issueButtons[0]);
 
@@ -227,8 +235,8 @@ describe("App accessibility and interaction states", () => {
       vi.advanceTimersByTime(200);
     });
 
-    expect(screen.getByText(/example.com\/grpc 命中/)).toBeInTheDocument();
-    expect(screen.getByText("静态置信度: 高")).toBeInTheDocument();
+    expect(screen.getAllByText(/example.com\/grpc 命中/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("静态置信度: 高").length).toBeGreaterThan(0);
   });
 
   it("allows clearing the request route simulation port", () => {
